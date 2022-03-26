@@ -1,3 +1,5 @@
+import ist.meic.pava.Combination;
+
 class Person {
     String name;
 
