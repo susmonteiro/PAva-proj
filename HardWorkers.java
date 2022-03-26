@@ -11,6 +11,7 @@ class Person {
         System.out.print(name);
     }
 
+    @Combination("or")
     public boolean isHardWorker() {
         return false;
     }
