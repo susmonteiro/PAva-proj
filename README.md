@@ -16,8 +16,6 @@ as similar as possible to the analogous mechanisms that are pre-defined in CLOS
     $ javac -classpath javassist.jar:. ist/meic/pava/UsingMethodCombination.java
 
     $ java -classpath javassist.jar:. ist.meic.pava.UsingMethodCombination HardWorkers
-
-    $ java HardWorkers
 ```
 
 ## Authors:

@@ -84,8 +84,16 @@ class ForeignHardworkingPerson extends Person implements Foreign, HardWorker {
 
 public class HardWorkers {
 
+    // ! temporary method, delete me
+    @Combination("or")
+    public static void printSomething() {
+        System.out.println("Inside the original method");
+    }
+
     // * Simple Method Combination main function
     public static void main(String[] args) {
+        printSomething();
+
         Person[] people = new Person[] { new Person("Mary"),
                 new Student("John", "FEUP"),
                 new Student("Lucy", "XYZ"),
