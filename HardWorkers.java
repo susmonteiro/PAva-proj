@@ -13,6 +13,7 @@ class Person {
 
     @Combination("or")
     public boolean isHardWorker() {
+        System.out.println("Person.isHardWorker.");
         return false;
     }
 }
@@ -29,7 +30,9 @@ class Student extends Person {
         System.out.print("Student ");
     }
 
+    @Combination("or")
     public boolean isHardWorker() {
+        System.out.println("Student.isHardWorker.");
         return isGoodSchool(school);
     }
 
@@ -39,7 +42,9 @@ class Student extends Person {
 }
 
 interface HardWorker {
+    @Combination("or")
     default boolean isHardWorker() {
+        System.out.println("HardWorker.isHardWorker.");
         return true;
     }
 }
@@ -84,20 +89,13 @@ class ForeignHardworkingPerson extends Person implements Foreign, HardWorker {
 
 public class HardWorkers {
 
-    // ! temporary method, delete me
-    @Combination("or")
-    public static void printSomething() {
-        System.out.println("Inside the original method");
-    }
-
     // * Simple Method Combination main function
     public static void main(String[] args) {
-        printSomething();
-
-        Person[] people = new Person[] { new Person("Mary"),
-                new Student("John", "FEUP"),
-                new Student("Lucy", "XYZ"),
-                new ISTStudent("Fritz") };
+        Person[] people = new Person[] { 
+            new Person("Mary"),
+            new Student("John", "FEUP"),
+            new Student("Lucy", "XYZ"),
+            new ISTStudent("Fritz") };
         for (Person person : people) {
             System.out.println(person.name + " is a hard worker? " +
                     person.isHardWorker());

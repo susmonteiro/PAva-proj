@@ -4,22 +4,17 @@ import javassist.*;
 import java.io.*;
 import java.lang.reflect.*;
 
-public class UsingMethodCombination {
-    public static void main(String[] args) throws NotFoundException, CannotCompileException, NoSuchMethodException,
-            IllegalAccessException, ClassNotFoundException, InvocationTargetException {
-        if (args.length != 1) {
-            System.err.println("Usage: java -classpath javassist.jar:. ist.meic.pava.UsingMethodCombination <class>");
-            System.exit(1);
-        } else {
-            ClassPool pool = ClassPool.getDefault();
-            CtClass ctClass = pool.get(args[0]);
+// associate listeners to Javassist's class loader
+// automatically process classes - no need to specify the classes we want to apply combination to
+class CombineTranslator implements Translator {
+    public void start(ClassPool pool) throws NotFoundException, CannotCompileException {}
+
+    public void onLoad(ClassPool pool, String className) throws NotFoundException, CannotCompileException {
+        CtClass ctClass = pool.get(className);
+        try {
             combineMethods(ctClass);
-            Class<?> rtClass = ctClass.toClass();
-            Method main = rtClass.getMethod("main", args.getClass());
-            // ? do we need to take care of the arguments?
-            String[] restArgs = new String[args.length - 1];
-            System.arraycopy(args, 1, restArgs, 0, restArgs.length);
-            main.invoke(null, new Object[] { restArgs });
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -44,5 +39,26 @@ public class UsingMethodCombination {
             "   return " + name + "$original($$);" +
             "}");
         ctClass.addMethod(ctMethod);
+    }
+
+}
+
+public class UsingMethodCombination {
+    public static void main(String[] args) throws NotFoundException, CannotCompileException, NoSuchMethodException,
+            IllegalAccessException, ClassNotFoundException, InvocationTargetException, Throwable {
+        if (args.length != 1) {
+            System.err.println("Usage: java -classpath javassist.jar:. ist.meic.pava.UsingMethodCombination <class>");
+            System.exit(1);
+        } else {
+            Translator translator = new CombineTranslator();
+            ClassPool pool = ClassPool.getDefault();
+            Loader classLoader = new Loader();
+            classLoader.addTranslator(pool, translator);
+
+            // ? do we need to take care of the arguments?
+            String[] restArgs = new String[args.length - 1];
+            System.arraycopy(args, 1, restArgs, 0, restArgs.length);
+            classLoader.run(args[0], restArgs);
+        }
     }
 }
