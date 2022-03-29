@@ -21,14 +21,20 @@ class CombineTranslator implements Translator {
     static void combineMethods(CtClass ctClass) throws ClassNotFoundException, CannotCompileException {
         for (CtMethod ctMethod : ctClass.getDeclaredMethods()) {
             Object[] annotations = ctMethod.getAnnotations();
-            // ? a method could have more than one annotation... do we have to iterate over the annotations?
-            if ((annotations.length == 1) && (annotations[0] instanceof Combination)) {
-                combine(ctClass, ctMethod);
+            // ? a method could have more than one annotation... do we have to iterate through the annotations?
+            for (Object annotation : annotations) {
+                if (annotation instanceof Combination) {
+                    Combination c = (Combination)annotation;
+                    combine(ctClass, ctMethod, c.value());
+                }
             }
         }
     }
 
-    static void combine(CtClass ctClass, CtMethod ctMethod) throws CannotCompileException {
+    static void combine(CtClass ctClass, CtMethod ctMethod, String value) throws CannotCompileException {
+        
+        // ! suppose the only combination type for now is "or" - delete me
+
         String name = ctMethod.getName();
         ctMethod.setName(name + "$original");
 
