@@ -3,6 +3,8 @@ package ist.meic.pava;
 import javassist.*;
 import java.io.*;
 import java.lang.reflect.*;
+import java.util.ArrayList;
+import java.util.List;
 
 // associate listeners to Javassist's class loader
 // automatically process classes - no need to specify the classes we want to apply combination to
@@ -36,13 +38,33 @@ class CombineTranslator implements Translator {
         // ! suppose the only combination type for now is "or" - delete me
 
         String name = ctMethod.getName();
+        String signature = ctMethod.getSignature();
         ctMethod.setName(name + "$original");
 
+        // ? list is the best option?
+        List<CtMethod> allMethods = new ArrayList<CtMethod>();
+
+        String superMethod = null;
+
+        try {
+            CtClass superClass = ctClass.getSuperclass();
+            System.out.println(ctClass.getName() + " : " + superClass.getName());
+            superMethod = superClass.getMethod(name, signature).getName();
+            //allMethods.add(superClass.getMethod(name, signature));
+        } catch (NotFoundException e) {
+            // todo do nothing?
+            // if there is no superclass
+        } 
+
+        //allMethods.forEach((method) -> System.out.println(method.getName()));
+
         ctMethod = CtNewMethod.copy(ctMethod, name, ctClass, null);
+
+        String methodCall = superMethod != null ? "|| super." + superMethod + "();" : ";";
+
         ctMethod.setBody(
             "{" +
-            "   System.out.println(\"Inside the new method\");" +
-            "   return " + name + "$original($$);" +
+            "   return " + name + "$original($$)" + methodCall +
             "}");
         ctClass.addMethod(ctMethod);
     }

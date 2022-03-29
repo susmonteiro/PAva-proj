@@ -22,3 +22,6 @@ as similar as possible to the analogous mechanisms that are pre-defined in CLOS
 
 - [André Nascimento](https://github.com/ArcKenimuZ)
 - [Susana Monteiro](https://github.com/susmonteiro)
+
+## Questions: 
+- [ ] Se duas classes (uma superclasse da outra) impletarem a mesma interface, temos de ter cuidado para não chamar o método duas vezes?
