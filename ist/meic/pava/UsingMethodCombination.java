@@ -7,6 +7,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import javassist.bytecode.annotation.Annotation;
+import javassist.bytecode.AnnotationsAttribute;
 
 // associate listeners to Javassist's class loader
 // automatically process classes - no need to specify the classes we want to apply combination to
@@ -54,7 +56,7 @@ class CombineTranslator implements Translator {
             }
         }
 
-        // printMethods(ctClass);
+        //printMethods(ctClass);
     }
 
     // ! debug function, remove me
@@ -92,15 +94,20 @@ class CombineTranslator implements Translator {
             );
         } catch (NotFoundException | NoClassDefFoundError e) {
             // if there was no previous method in the class, copy method from the interface
-            ctMethod = CtNewMethod.copy(ctMethod, name, ctClass, null);
-            ctClass.addMethod(ctMethod);
+            CtMethod ctNewMethod = CtNewMethod.copy(ctMethod, name, ctClass, null);
+
+            // need to also add the annotation
+            AnnotationsAttribute attr = (AnnotationsAttribute)ctMethod.getMethodInfo().getAttribute(AnnotationsAttribute.visibleTag);
+            ctNewMethod.getMethodInfo().addAttribute(attr);
+            ctClass.addMethod(ctNewMethod);
         }
 
     }
 
     static void combine(CtClass ctClass, CtMethod ctMethod, String value) 
             throws CannotCompileException, NotFoundException, ClassNotFoundException {
-        if (value == "standard")
+
+        if (value.equals("standard"))
             combineStandard(ctClass, ctMethod, value);
         else if (operations.containsKey(value))
             combineSimple(ctClass, ctMethod, value);
