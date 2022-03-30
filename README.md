@@ -24,4 +24,24 @@ as similar as possible to the analogous mechanisms that are pre-defined in CLOS
 - [Susana Monteiro](https://github.com/susmonteiro)
 
 ## Questions: 
-- [ ] Se duas classes (uma superclasse da outra) impletarem a mesma interface, temos de ter cuidado para não chamar o método duas vezes?
+
+
+## Draft:
+
+inicialmente:
+    isHardWorker
+
+step 1:
+    isHardWorker$original
+
+    isHardWorker:
+        return isHardWorker$original + interfaces.loop()
+
+step 2:
+    isHardWorker$original
+
+    isHardWorker$interfaces:
+        return isHardWorker$original + interfaces.loop()
+
+    isHardWorker:
+        return isHardWorker$interfaces + super.isHardWorker

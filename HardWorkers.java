@@ -54,6 +54,13 @@ class ISTStudent extends Student implements HardWorker {
         super(name, "IST");
     }
 
+
+    // ! how to call interface methods
+    // @Combination("or")
+    // public boolean isHardWorker() {
+    //     return HardWorker.super.isHardWorker();
+    // }
+
     public void before_print_name() {
         System.out.print("IST-");
     }

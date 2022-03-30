@@ -21,16 +21,60 @@ class CombineTranslator implements Translator {
     }
 
     static void combineMethods(CtClass ctClass) throws ClassNotFoundException, CannotCompileException {
+        // get interface methods
+
+        try {
+            for (CtClass ctInterface : ctClass.getInterfaces()) {
+                for (CtMethod ctMethod : ctInterface.getDeclaredMethods()) {
+                    for (Object annotation : ctMethod.getAnnotations()) {
+                        if (annotation instanceof Combination) {
+                            addInterfaceMethod(ctClass, ctInterface.getName(), ctMethod, ((Combination)annotation).value());
+                        }
+                    }
+                }
+            }
+        } catch (NotFoundException e) {
+            // todo do nothing?
+            // if there are no interfaces just continue
+        }
+
         for (CtMethod ctMethod : ctClass.getDeclaredMethods()) {
             Object[] annotations = ctMethod.getAnnotations();
-            // ? a method could have more than one annotation... do we have to iterate through the annotations?
             for (Object annotation : annotations) {
                 if (annotation instanceof Combination) {
-                    Combination c = (Combination)annotation;
-                    combine(ctClass, ctMethod, c.value());
+                    combine(ctClass, ctMethod, ((Combination)annotation).value());
                 }
             }
         }
+    }
+
+    static void addInterfaceMethod(CtClass ctClass, String interfaceName, CtMethod ctMethod, String value) throws CannotCompileException {
+        
+        String name = ctMethod.getName();
+        String signature = ctMethod.getSignature();
+        
+        try {
+            CtMethod originalMethod = ctClass.getDeclaredMethod(name);
+            originalMethod.setName(name + "$" + interfaceName);
+            
+            ctMethod = CtNewMethod.copy(originalMethod, name, ctClass, null);
+            
+            String methodCall = "   return " + name + "$" + interfaceName + "($$)" + " || " + interfaceName + ".super." + name + "($$);";
+
+            System.out.println("Method Call: " + methodCall);
+
+            ctMethod.setBody(
+                "{"+
+                "   return " + name + "$" + interfaceName + "($$)" + " || " + interfaceName + ".super." + name + "($$);" +
+                "}"
+            );
+
+        } catch (NotFoundException | NoClassDefFoundError e) {
+            // if there was no previous method in the class
+            ctMethod = CtNewMethod.copy(ctMethod, name, ctClass, null);
+        }
+        
+        ctClass.addMethod(ctMethod);
     }
 
     static void combine(CtClass ctClass, CtMethod ctMethod, String value) throws CannotCompileException {
@@ -48,15 +92,12 @@ class CombineTranslator implements Translator {
 
         try {
             CtClass superClass = ctClass.getSuperclass();
-            System.out.println(ctClass.getName() + " : " + superClass.getName());
             superMethod = superClass.getMethod(name, signature).getName();
             //allMethods.add(superClass.getMethod(name, signature));
         } catch (NotFoundException e) {
             // todo do nothing?
             // if there is no superclass
         } 
-
-        //allMethods.forEach((method) -> System.out.println(method.getName()));
 
         ctMethod = CtNewMethod.copy(ctMethod, name, ctClass, null);
 
