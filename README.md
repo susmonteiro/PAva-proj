@@ -26,4 +26,7 @@ as similar as possible to the analogous mechanisms that are pre-defined in CLOS
 ## Questions: 
 - catch "NotFoundException" is the best option?
 
+## ToDo:
+- when copying the interface methods to the class, the method should have the annotation @Combination as well 
+
 ## Draft:

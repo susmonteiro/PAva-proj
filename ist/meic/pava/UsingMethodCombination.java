@@ -4,12 +4,18 @@ import javassist.*;
 import java.io.*;
 import java.lang.reflect.*;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 // associate listeners to Javassist's class loader
 // automatically process classes - no need to specify the classes we want to apply combination to
 class CombineTranslator implements Translator {
-    public void start(ClassPool pool) throws NotFoundException, CannotCompileException {}
+    private static final Map<String,String> operations = Map.of("or", " || ", 
+                                "and", " && ");
+
+
+    public void start(ClassPool pool) throws NotFoundException, CannotCompileException { }
 
     public void onLoad(ClassPool pool, String className) throws NotFoundException, CannotCompileException {
         CtClass ctClass = pool.get(className);
@@ -20,14 +26,16 @@ class CombineTranslator implements Translator {
         }
     }
 
-    static void combineMethods(CtClass ctClass) throws ClassNotFoundException, CannotCompileException, NotFoundException {
+    static void combineMethods(CtClass ctClass)
+            throws ClassNotFoundException, CannotCompileException, NotFoundException {
         // get interface methods
         try {
             for (CtClass ctInterface : ctClass.getInterfaces()) {
                 for (CtMethod ctMethod : ctInterface.getDeclaredMethods()) {
                     for (Object annotation : ctMethod.getAnnotations()) {
                         if (annotation instanceof Combination) {
-                            addInterfaceMethod(ctClass, ctInterface.getName(), ctMethod, ((Combination)annotation).value());
+                            addInterfaceMethod(ctClass, ctInterface.getName(), ctMethod,
+                                    ((Combination) annotation).value());
                         }
                     }
                 }
@@ -41,52 +49,63 @@ class CombineTranslator implements Translator {
             Object[] annotations = ctMethod.getAnnotations();
             for (Object annotation : annotations) {
                 if (annotation instanceof Combination) {
-                    combine(ctClass, ctMethod, ((Combination)annotation).value());
+                    combine(ctClass, ctMethod, ((Combination) annotation).value());
                 }
             }
         }
+
+        // printMethods(ctClass);
     }
 
-    static void addInterfaceMethod(CtClass ctClass, String interfaceName, CtMethod ctMethod, String value) throws CannotCompileException, NotFoundException {
-        
+    // ! debug function, remove me
+    static void printMethods(CtClass ctClass) throws ClassNotFoundException {
+        System.out.println("Class: " + ctClass.getName() + " -> Methods:");
+
+        for (CtMethod ctMethod : ctClass.getDeclaredMethods()) {
+            System.out.println(ctMethod.getName());
+            Object[] annotations = ctMethod.getAnnotations();
+            if (annotations.length != 0)
+                System.out.println("\tAnnotation: " + annotations[0]);
+        }
+    }
+
+    static void addInterfaceMethod(CtClass ctClass, String interfaceName, CtMethod ctMethod, String value)
+            throws CannotCompileException, NotFoundException, ClassNotFoundException {
+
         String name = ctMethod.getName();
         CtClass[] parameters = ctMethod.getParameterTypes();
-        
+
         try {
+            // try to get previously declared method
             CtMethod originalMethod = ctClass.getDeclaredMethod(name, parameters);
-            originalMethod.setName(name + "$" + interfaceName);
-            
-            ctMethod = CtNewMethod.copy(originalMethod, name, ctClass, null);
-            
-            ctMethod.setBody(
-                "{"+
-                "   return " + name + "$" + interfaceName + "($$)" + " || " + interfaceName + ".super." + name + "($$);" +
+            String newName = name + "$" + interfaceName;
+            ctMethod = CtNewMethod.copy(originalMethod, newName, ctClass, null);
+
+            originalMethod.setBody(
+                "{" +
+                "   return " + newName + "($$)" + operations.get(value) + interfaceName + ".super." + name + "($$);" +
                 "}"
             );
-
         } catch (NotFoundException | NoClassDefFoundError e) {
             // if there was no previous method in the class, copy method from the interface
             ctMethod = CtNewMethod.copy(ctMethod, name, ctClass, null);
         }
-        
+
         ctClass.addMethod(ctMethod);
     }
 
-
-    static void combine(CtClass ctClass, CtMethod ctMethod, String value) throws CannotCompileException, NotFoundException, ClassNotFoundException {
-        // ! suppose the only combination type for now is "or" - delete me
-
+    static void combine(CtClass ctClass, CtMethod ctMethod, String value)
+            throws CannotCompileException, NotFoundException, ClassNotFoundException {
         String name = ctMethod.getName();
         CtClass[] parameters = ctMethod.getParameterTypes();
-                
+
         try {
-            // todo take care of cases where superclass doesnt have, but super.super class has 
-            
+            // todo take care of cases where superclass doesnt have, but super.super class has
             // try to get superclass
             CtClass superClass = ctClass.getSuperclass();
 
             // try to get method from superclass
-            String superMethod = " || super." + superClass.getDeclaredMethod(name, parameters).getName() + "($$);";
+            String superMethod = operations.get(value) + "super." + superClass.getDeclaredMethod(name, parameters).getName() + "($$);";
 
             // if the method was found, create a copy and chage its name
             CtMethod ctNewMethod = CtNewMethod.copy(ctMethod, name + "$superclass", ctClass, null);
@@ -101,7 +120,7 @@ class CombineTranslator implements Translator {
         } catch (NotFoundException e) {
             // todo do nothing?
             // if there is no superclass or if the superclass does not have the method
-        } 
+        }
     }
 }
 
