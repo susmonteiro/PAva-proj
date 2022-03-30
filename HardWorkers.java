@@ -41,6 +41,14 @@ class Student extends Person {
     }
 }
 
+// interface NotHardWorker {
+//     @Combination("or")
+//     default boolean isHardWorker() {
+//         System.out.println("NotHardWorker.isHardWorker.");
+//         return false;
+//     }
+// }
+
 interface HardWorker {
     @Combination("or")
     default boolean isHardWorker() {
@@ -65,6 +73,15 @@ class ISTStudent extends Student implements HardWorker {
         System.out.print("IST-");
     }
 }
+
+// todo make this example work correctly
+// todo create annotation for interface functions
+
+// class MastersISTStudent extends ISTStudent implements NotHardWorker {
+//     public MastersISTStudent(String name) {
+//         super(name);
+//     }
+// }
 
 interface Foreign {
     default void before_print_name() {
