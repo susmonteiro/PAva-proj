@@ -72,33 +72,37 @@ class CombineTranslator implements Translator {
         ctClass.addMethod(ctMethod);
     }
 
-    static void combine(CtClass ctClass, CtMethod ctMethod, String value) throws CannotCompileException, NotFoundException {
-        
+
+    static void combine(CtClass ctClass, CtMethod ctMethod, String value) throws CannotCompileException, NotFoundException, ClassNotFoundException {
         // ! suppose the only combination type for now is "or" - delete me
 
         String name = ctMethod.getName();
         CtClass[] parameters = ctMethod.getParameterTypes();
-        
-        ctMethod.setName(name + "$original");
-        String superMethod = ";";
-
+                
         try {
+            // todo take care of cases where superclass doesnt have, but super.super class has 
+            
+            // try to get superclass
             CtClass superClass = ctClass.getSuperclass();
-            superMethod = " || super." + superClass.getDeclaredMethod(name, parameters).getName() + "($$);";
+
+            // try to get method from superclass
+            String superMethod = " || super." + superClass.getDeclaredMethod(name, parameters).getName() + "($$);";
+
+            // if the method was found, create a copy and chage its name
+            CtMethod ctNewMethod = CtNewMethod.copy(ctMethod, name + "$superclass", ctClass, null);
+            ctClass.addMethod(ctNewMethod);
+
+            // change the body of the original method to call the newly created method
+            ctMethod.setBody(
+                "{" +
+                "   return " + name + "$superclass($$)" + superMethod +
+                "}");
+
         } catch (NotFoundException e) {
             // todo do nothing?
-            // if there is no superclass
+            // if there is no superclass or if the superclass does not have the method
         } 
-
-        ctMethod = CtNewMethod.copy(ctMethod, name, ctClass, null);
-
-        ctMethod.setBody(
-            "{" +
-            "   return " + name + "$original($$)" + superMethod +
-            "}");
-        ctClass.addMethod(ctMethod);
     }
-
 }
 
 public class UsingMethodCombination {
@@ -113,7 +117,6 @@ public class UsingMethodCombination {
             Loader classLoader = new Loader();
             classLoader.addTranslator(pool, translator);
 
-            // ? do we need to take care of the arguments?
             String[] restArgs = new String[args.length - 1];
             System.arraycopy(args, 1, restArgs, 0, restArgs.length);
             classLoader.run(args[0], restArgs);

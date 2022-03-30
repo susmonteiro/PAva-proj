@@ -31,7 +31,7 @@ class Student extends Person {
     }
 
     @Combination("or")
-    public boolean isHardWorker$original() {
+    public boolean isHardWorker() {
         System.out.println("Student.isHardWorker.");
         return isGoodSchool(school);
     }
