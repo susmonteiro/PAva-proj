@@ -56,7 +56,7 @@ class CombineTranslator implements Translator {
             }
         }
 
-        //printMethods(ctClass);
+        // printMethods(ctClass);
     }
 
     // ! debug function, remove me
@@ -79,7 +79,6 @@ class CombineTranslator implements Translator {
 
         try {
             // try to get previously declared method
-            
             CtMethod originalMethod = ctClass.getDeclaredMethod(name, parameters);
             String newName = name + "$" + interfaceName;
             ctMethod = CtNewMethod.copy(originalMethod, newName, ctClass, null);
@@ -132,13 +131,14 @@ class CombineTranslator implements Translator {
             String superMethod = operations.get(value) + "super." + superClass.getDeclaredMethod(name, parameters).getName() + "($$);";
 
             // if the method was found, create a copy and chage its name
-            CtMethod ctNewMethod = CtNewMethod.copy(ctMethod, name + "$superclass", ctClass, null);
+            String newName = name + "$" + ctClass.getName();
+            CtMethod ctNewMethod = CtNewMethod.copy(ctMethod, newName, ctClass, null);
             ctClass.addMethod(ctNewMethod);
 
             // change the body of the original method to call the newly created method
             ctMethod.setBody(
                 "{" +
-                "   return " + name + "$superclass($$)" + superMethod +
+                "   return " + newName + "($$)" + superMethod +
                 "}");
 
         } catch (NotFoundException e) {

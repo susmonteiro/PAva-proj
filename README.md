@@ -25,19 +25,20 @@ as similar as possible to the analogous mechanisms that are pre-defined in CLOS
 
 ## Questions: 
 - catch "NotFoundException" is the best option?
+- is there another option instead of copying the annotation explicitly?
+- calling the super method of a class is not enough to call the superclass other methods?
 
 ## ToDo:
-- when copying the interface methods to the class, the method should have the annotation @Combination as well 
 - fix this:
 
-```
-Student.isHardWorker.
-Person.isHardWorker.
-Lucy is a hard worker? false
-ISTStudent.isHardWorker.
-ISTStudent.isHardWorker.
-Person.isHardWorker.
-Fritz is a hard worker? false
-```
+    ```
+    Student.isHardWorker.
+    Person.isHardWorker.
+    Lucy is a hard worker? false
+    ISTStudent.isHardWorker.
+    ISTStudent.isHardWorker.
+    Person.isHardWorker.
+    Fritz is a hard worker? false
+    ```
 
 ## Draft:
