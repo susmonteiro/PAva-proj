@@ -29,10 +29,15 @@ class CombineTranslator implements Translator {
     }
 
     static void combineMethods(CtClass ctClass)
-            throws ClassNotFoundException, CannotCompileException, NotFoundException {
+            throws ClassNotFoundException, CannotCompileException, NotFoundException {        
+        //debug
+        // System.out.println("Class: " + ctClass.getName());
+                
         // get interface methods
         try {
             for (CtClass ctInterface : ctClass.getInterfaces()) {
+                // debug
+                // System.out.println("Interface " + ctInterface.getName() + " in class "+ ctClass.getName());
                 for (CtMethod ctMethod : ctInterface.getDeclaredMethods()) {
                     for (Object annotation : ctMethod.getAnnotations()) {
                         if (annotation instanceof Combination) {
@@ -46,7 +51,6 @@ class CombineTranslator implements Translator {
             // if there are no interfaces just continue
         }
 
-
         for (CtMethod ctMethod : ctClass.getDeclaredMethods()) {
             Object[] annotations = ctMethod.getAnnotations();
             for (Object annotation : annotations) {
@@ -56,45 +60,57 @@ class CombineTranslator implements Translator {
             }
         }
 
-        // printMethods(ctClass);
+        // printMethods(ctClass, true);
     }
 
     // ! debug function, remove me
-    static void printMethods(CtClass ctClass) throws ClassNotFoundException {
+    static void printMethods(CtClass ctClass, boolean annot) throws ClassNotFoundException {
         System.out.println("Class: " + ctClass.getName() + " -> Methods:");
 
         for (CtMethod ctMethod : ctClass.getDeclaredMethods()) {
             System.out.println(ctMethod.getName());
             Object[] annotations = ctMethod.getAnnotations();
-            if (annotations.length != 0)
+            if (annot && annotations.length != 0)
                 System.out.println("\tAnnotation: " + annotations[0]);
         }
     }
 
     static void addInterfaceMethod(CtClass ctClass, String interfaceName, CtMethod ctMethod, String value)
             throws CannotCompileException, NotFoundException, ClassNotFoundException {
-
+                
         String name = ctMethod.getName();
         CtClass[] parameters = ctMethod.getParameterTypes();
 
         try {
-            // try to get previously declared method
+            // try to get previously declared method, in the class
             CtMethod originalMethod = ctClass.getDeclaredMethod(name, parameters);
+
             String newName = name + "$" + interfaceName;
             ctMethod = CtNewMethod.copy(originalMethod, newName, ctClass, null);
 
+            
+            
             ctClass.addMethod(ctMethod);
-
+            
             
             originalMethod.setBody(
                 "{" +
+                // debug
+                // "System.out.println(\"Method " + ctMethod.getName() + " in class " + ctClass.getName() + " return " + newName + "($$)" + operations.get(value) + interfaceName + ".super." + name + "($$);\");" +
                 "   return " + newName + "($$)" + operations.get(value) + interfaceName + ".super." + name + "($$);" +
                 "}"
-            );
+                );
         } catch (NotFoundException | NoClassDefFoundError e) {
             // if there was no previous method in the class, copy method from the interface
             CtMethod ctNewMethod = CtNewMethod.copy(ctMethod, name, ctClass, null);
-
+            ctNewMethod.setBody(
+                "{" +
+                // debug
+                // "System.out.println(\"Method " + name + " in class " + ctClass.getName() + " return " + interfaceName + ".super." + name + "($$);\");" +
+                "   return " + interfaceName + ".super." + name + "($$);" +
+                "}"
+                );
+            
             // need to also add the annotation
             AnnotationsAttribute attr = (AnnotationsAttribute)ctMethod.getMethodInfo().getAttribute(AnnotationsAttribute.visibleTag);
             ctNewMethod.getMethodInfo().addAttribute(attr);
@@ -120,7 +136,7 @@ class CombineTranslator implements Translator {
             throws CannotCompileException, NotFoundException, ClassNotFoundException {
 
         String name = ctMethod.getName();
-        CtClass[] parameters = ctMethod.getParameterTypes();
+        String signature = ctMethod.getSignature();
 
         try {
             // todo take care of cases where superclass doesnt have, but super.super class has
@@ -128,7 +144,7 @@ class CombineTranslator implements Translator {
             CtClass superClass = ctClass.getSuperclass();
 
             // try to get method from superclass
-            String superMethod = operations.get(value) + "super." + superClass.getDeclaredMethod(name, parameters).getName() + "($$);";
+            String superMethod = operations.get(value) + "super." + superClass.getMethod(name, signature).getName() + "($$);";
 
             // if the method was found, create a copy and chage its name
             String newName = name + "$" + ctClass.getName();
@@ -138,6 +154,8 @@ class CombineTranslator implements Translator {
             // change the body of the original method to call the newly created method
             ctMethod.setBody(
                 "{" +
+                // debug
+                // "System.out.println(\"Method " + ctMethod.getName() + " in class " + ctClass.getName() + " return " + newName + "($$)" + superMethod + "\");" +
                 "   return " + newName + "($$)" + superMethod +
                 "}");
 
