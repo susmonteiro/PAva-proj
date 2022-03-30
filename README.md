@@ -29,16 +29,5 @@ as similar as possible to the analogous mechanisms that are pre-defined in CLOS
 - calling the super method of a class is not enough to call the superclass other methods?
 
 ## ToDo:
-- fix this:
-
-    ```
-    Student.isHardWorker.
-    Person.isHardWorker.
-    Lucy is a hard worker? false
-    ISTStudent.isHardWorker.
-    ISTStudent.isHardWorker.
-    Person.isHardWorker.
-    Fritz is a hard worker? false
-    ```
 
 ## Draft:
