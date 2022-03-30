@@ -24,24 +24,6 @@ as similar as possible to the analogous mechanisms that are pre-defined in CLOS
 - [Susana Monteiro](https://github.com/susmonteiro)
 
 ## Questions: 
-
+- catch "NotFoundException" is the best option?
 
 ## Draft:
-
-inicialmente:
-    isHardWorker
-
-step 1:
-    isHardWorker$original
-
-    isHardWorker:
-        return isHardWorker$original + interfaces.loop()
-
-step 2:
-    isHardWorker$original
-
-    isHardWorker$interfaces:
-        return isHardWorker$original + interfaces.loop()
-
-    isHardWorker:
-        return isHardWorker$interfaces + super.isHardWorker

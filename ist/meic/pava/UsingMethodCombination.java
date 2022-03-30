@@ -20,9 +20,8 @@ class CombineTranslator implements Translator {
         }
     }
 
-    static void combineMethods(CtClass ctClass) throws ClassNotFoundException, CannotCompileException {
+    static void combineMethods(CtClass ctClass) throws ClassNotFoundException, CannotCompileException, NotFoundException {
         // get interface methods
-
         try {
             for (CtClass ctInterface : ctClass.getInterfaces()) {
                 for (CtMethod ctMethod : ctInterface.getDeclaredMethods()) {
@@ -48,21 +47,17 @@ class CombineTranslator implements Translator {
         }
     }
 
-    static void addInterfaceMethod(CtClass ctClass, String interfaceName, CtMethod ctMethod, String value) throws CannotCompileException {
+    static void addInterfaceMethod(CtClass ctClass, String interfaceName, CtMethod ctMethod, String value) throws CannotCompileException, NotFoundException {
         
         String name = ctMethod.getName();
-        String signature = ctMethod.getSignature();
+        CtClass[] parameters = ctMethod.getParameterTypes();
         
         try {
-            CtMethod originalMethod = ctClass.getDeclaredMethod(name);
+            CtMethod originalMethod = ctClass.getDeclaredMethod(name, parameters);
             originalMethod.setName(name + "$" + interfaceName);
             
             ctMethod = CtNewMethod.copy(originalMethod, name, ctClass, null);
             
-            String methodCall = "   return " + name + "$" + interfaceName + "($$)" + " || " + interfaceName + ".super." + name + "($$);";
-
-            System.out.println("Method Call: " + methodCall);
-
             ctMethod.setBody(
                 "{"+
                 "   return " + name + "$" + interfaceName + "($$)" + " || " + interfaceName + ".super." + name + "($$);" +
@@ -70,30 +65,26 @@ class CombineTranslator implements Translator {
             );
 
         } catch (NotFoundException | NoClassDefFoundError e) {
-            // if there was no previous method in the class
+            // if there was no previous method in the class, copy method from the interface
             ctMethod = CtNewMethod.copy(ctMethod, name, ctClass, null);
         }
         
         ctClass.addMethod(ctMethod);
     }
 
-    static void combine(CtClass ctClass, CtMethod ctMethod, String value) throws CannotCompileException {
+    static void combine(CtClass ctClass, CtMethod ctMethod, String value) throws CannotCompileException, NotFoundException {
         
         // ! suppose the only combination type for now is "or" - delete me
 
         String name = ctMethod.getName();
-        String signature = ctMethod.getSignature();
+        CtClass[] parameters = ctMethod.getParameterTypes();
+        
         ctMethod.setName(name + "$original");
-
-        // ? list is the best option?
-        List<CtMethod> allMethods = new ArrayList<CtMethod>();
-
-        String superMethod = null;
+        String superMethod = ";";
 
         try {
             CtClass superClass = ctClass.getSuperclass();
-            superMethod = superClass.getMethod(name, signature).getName();
-            //allMethods.add(superClass.getMethod(name, signature));
+            superMethod = " || super." + superClass.getDeclaredMethod(name, parameters).getName() + "($$);";
         } catch (NotFoundException e) {
             // todo do nothing?
             // if there is no superclass
@@ -101,11 +92,9 @@ class CombineTranslator implements Translator {
 
         ctMethod = CtNewMethod.copy(ctMethod, name, ctClass, null);
 
-        String methodCall = superMethod != null ? "|| super." + superMethod + "();" : ";";
-
         ctMethod.setBody(
             "{" +
-            "   return " + name + "$original($$)" + methodCall +
+            "   return " + name + "$original($$)" + superMethod +
             "}");
         ctClass.addMethod(ctMethod);
     }
