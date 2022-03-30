@@ -28,5 +28,16 @@ as similar as possible to the analogous mechanisms that are pre-defined in CLOS
 
 ## ToDo:
 - when copying the interface methods to the class, the method should have the annotation @Combination as well 
+- fix this:
+
+```
+Student.isHardWorker.
+Person.isHardWorker.
+Lucy is a hard worker? false
+ISTStudent.isHardWorker.
+ISTStudent.isHardWorker.
+Person.isHardWorker.
+Fritz is a hard worker? false
+```
 
 ## Draft:

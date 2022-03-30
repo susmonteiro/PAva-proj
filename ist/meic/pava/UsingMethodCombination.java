@@ -34,8 +34,7 @@ class CombineTranslator implements Translator {
                 for (CtMethod ctMethod : ctInterface.getDeclaredMethods()) {
                     for (Object annotation : ctMethod.getAnnotations()) {
                         if (annotation instanceof Combination) {
-                            addInterfaceMethod(ctClass, ctInterface.getName(), ctMethod,
-                                    ((Combination) annotation).value());
+                            addInterfaceMethod(ctClass, ctInterface.getName(), ctMethod, ((Combination) annotation).value());
                         }
                     }
                 }
@@ -44,6 +43,7 @@ class CombineTranslator implements Translator {
             // todo do nothing?
             // if there are no interfaces just continue
         }
+
 
         for (CtMethod ctMethod : ctClass.getDeclaredMethods()) {
             Object[] annotations = ctMethod.getAnnotations();
@@ -77,10 +77,14 @@ class CombineTranslator implements Translator {
 
         try {
             // try to get previously declared method
+            
             CtMethod originalMethod = ctClass.getDeclaredMethod(name, parameters);
             String newName = name + "$" + interfaceName;
             ctMethod = CtNewMethod.copy(originalMethod, newName, ctClass, null);
 
+            ctClass.addMethod(ctMethod);
+
+            
             originalMethod.setBody(
                 "{" +
                 "   return " + newName + "($$)" + operations.get(value) + interfaceName + ".super." + name + "($$);" +
@@ -89,13 +93,26 @@ class CombineTranslator implements Translator {
         } catch (NotFoundException | NoClassDefFoundError e) {
             // if there was no previous method in the class, copy method from the interface
             ctMethod = CtNewMethod.copy(ctMethod, name, ctClass, null);
+            ctClass.addMethod(ctMethod);
         }
 
-        ctClass.addMethod(ctMethod);
     }
 
-    static void combine(CtClass ctClass, CtMethod ctMethod, String value)
+    static void combine(CtClass ctClass, CtMethod ctMethod, String value) 
             throws CannotCompileException, NotFoundException, ClassNotFoundException {
+        if (value == "standard")
+            combineStandard(ctClass, ctMethod, value);
+        else if (operations.containsKey(value))
+            combineSimple(ctClass, ctMethod, value);
+        else {
+            System.err.println("Valid operations are 'or', 'and' and 'standard'");
+            System.exit(1);
+        }
+    }
+
+    static void combineSimple(CtClass ctClass, CtMethod ctMethod, String value)
+            throws CannotCompileException, NotFoundException, ClassNotFoundException {
+
         String name = ctMethod.getName();
         CtClass[] parameters = ctMethod.getParameterTypes();
 
@@ -121,6 +138,11 @@ class CombineTranslator implements Translator {
             // todo do nothing?
             // if there is no superclass or if the superclass does not have the method
         }
+    }
+
+    static void combineStandard(CtClass ctClass, CtMethod ctMethod, String value)
+            throws CannotCompileException, NotFoundException, ClassNotFoundException {
+        // todo implement
     }
 }
 
