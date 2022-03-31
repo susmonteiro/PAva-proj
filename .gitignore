@@ -1,1 +1,5 @@
+# Java bytecode files
 **/*.class
+
+# VS Workspace file
+*.code-workspace

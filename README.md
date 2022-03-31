@@ -11,11 +11,12 @@ as similar as possible to the analogous mechanisms that are pre-defined in CLOS
 ## Compile and Run Project 1
 
 ```
-    $ javac HardWorkers.java
+    $ javac -d target/ HardWorkers.java
 
-    $ javac -classpath javassist.jar:. ist/meic/pava/UsingMethodCombination.java
+    $ javac -d target/ -classpath lib/javassist.jar:. ist/meic/pava/UsingMethodCombination.java
 
-    $ java -classpath javassist.jar:. ist.meic.pava.UsingMethodCombination HardWorkers
+    $ java -classpath target/:lib/javassist.jar:. ist.meic.pava.UsingMethodCombination HardWorkers
+
 ```
 
 ## Authors:
