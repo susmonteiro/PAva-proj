@@ -26,8 +26,41 @@ as similar as possible to the analogous mechanisms that are pre-defined in CLOS
 ## Questions: 
 - catch "NotFoundException" is the best option?
 - is there another option instead of copying the annotation explicitly?
-- calling the super method of a class is not enough to call the superclass other methods?
 
 ## ToDo:
 
 ## Draft:
+
+To show in presentation:
+
+```java
+
+interface HardWorker {
+    isHardWorker()
+}
+
+interface Female {
+    isHardWorker()
+}
+
+class Student extends Person implemtns HardWorker, Female {
+    isHardWorker$HardWorker()
+
+    isHardWorker$Female()
+        return HardWorker.super.isHardWorker || isHardWorker$HardWorker()
+
+    isHardWorker$Student()
+        return isHardWorker$Female() || Female.super.isHardWorker()
+
+    isHardWorker()
+        return isHardWorker$Student() || super.isHardWorker()
+    
+}
+
+class Person extends Animal {
+    isHardWorker$original()
+
+    isHardWorker()
+        return false || isHardWorker$original()
+}  
+```     

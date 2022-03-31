@@ -16,7 +16,6 @@ class CombineTranslator implements Translator {
     private static final Map<String,String> operations = Map.of("or", " || ", 
                                 "and", " && ");
 
-
     public void start(ClassPool pool) throws NotFoundException, CannotCompileException { }
 
     public void onLoad(ClassPool pool, String className) throws NotFoundException, CannotCompileException {
@@ -88,10 +87,7 @@ class CombineTranslator implements Translator {
             String newName = name + "$" + interfaceName;
             ctMethod = CtNewMethod.copy(originalMethod, newName, ctClass, null);
 
-            
-            
             ctClass.addMethod(ctMethod);
-            
             
             originalMethod.setBody(
                 "{" +
@@ -139,7 +135,6 @@ class CombineTranslator implements Translator {
         String signature = ctMethod.getSignature();
 
         try {
-            // todo take care of cases where superclass doesnt have, but super.super class has
             // try to get superclass
             CtClass superClass = ctClass.getSuperclass();
 

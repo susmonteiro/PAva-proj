@@ -1,6 +1,6 @@
 import ist.meic.pava.Combination;
 
-class Person {
+class Person  {
     String name;
 
     public Person(String name) {
@@ -18,7 +18,8 @@ class Person {
     }
 }
 
-class Student extends Person {
+
+class Student extends Person  {
     String school;
 
     public Student(String name, String school) {
@@ -41,19 +42,27 @@ class Student extends Person {
     }
 }
 
-// interface NotHardWorker {
-//     @Combination("or")
-//     default boolean isHardWorker() {
-//         System.out.println("NotHardWorker.isHardWorker.");
-//         return false;
-//     }
-// }
+interface NotHardWorker {
+    @Combination("or")
+    default boolean isHardWorker() {
+        System.out.println("NotHardWorker.isHardWorker.");
+        return false;
+    }
+}
 
-interface HardWorker {
+interface Worker {
+    @Combination("or")
+    default boolean isHardWorker() {
+        System.out.println("Worker.isHardWorker.");
+        return false;
+    }
+}
+
+interface HardWorker extends Worker {
     @Combination("or")
     default boolean isHardWorker() {
         System.out.println("HardWorker.isHardWorker.");
-        return true;
+        return false;
     }
 }
 
@@ -62,6 +71,11 @@ class ISTStudent extends Student implements HardWorker {
         super(name, "IST");
     }
 
+    // @Combination("or")
+    // public boolean isHardWorker() {
+    //     System.out.println("ISTStudent.isHardWorker.");
+    //     return false;
+    // }
 
     // ! how to call interface methods
     // @Combination("or")
@@ -74,14 +88,12 @@ class ISTStudent extends Student implements HardWorker {
     }
 }
 
-// todo make this example work correctly
-// todo create annotation for interface functions
 
-// class MastersISTStudent extends ISTStudent implements NotHardWorker {
-//     public MastersISTStudent(String name) {
-//         super(name);
-//     }
-// }
+class MastersISTStudent extends ISTStudent implements NotHardWorker {
+    public MastersISTStudent(String name) {
+        super(name);
+    }
+}
 
 interface Foreign {
     default void before_print_name() {
@@ -119,7 +131,9 @@ public class HardWorkers {
             new Person("Mary"),
             new Student("John", "FEUP"),
             new Student("Lucy", "XYZ"),
-            new ISTStudent("Fritz") };
+            new ISTStudent("Fritz"),
+            new MastersISTStudent("qwert")
+ };
         for (Person person : people) {
             System.out.println(person.name + " is a hard worker? " +
                     person.isHardWorker());
