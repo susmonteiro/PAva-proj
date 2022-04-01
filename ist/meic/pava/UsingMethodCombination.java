@@ -20,7 +20,7 @@ public class UsingMethodCombination {
             System.err.println("Usage: java -classpath javassist.jar:. ist.meic.pava.UsingMethodCombination <class>");
             System.exit(1);
         } else {
-            Translator translator = new CombineTranslator();
+            Translator translator = new CombinationTranslator();
             ClassPool pool = ClassPool.getDefault();
             Loader classLoader = new Loader();
             classLoader.addTranslator(pool, translator);
@@ -32,7 +32,8 @@ public class UsingMethodCombination {
     }
 }
 
-class CombineTranslator implements Translator {
+class CombinationTranslator implements Translator {
+    private final ProgramCombinations programCombinations = new ProgramCombinations();
 
     public void start(ClassPool pool) {
 
@@ -48,164 +49,205 @@ class CombineTranslator implements Translator {
     }
 
     public void combineMethods(CtClass ctClass) throws NotFoundException, ClassNotFoundException {
-        CombineMethodList combineMethodList = new CombineMethodList(ctClass);
-
-        // CombineRechability combineRechability = new CombineRechability();
+        ClassCombinations classCombinations = this.programCombinations.getClassCombinations(ctClass);
     }
 }
 
-class CombineMethodList {
-    CtClass originalClass;
-    Map<String, CombineMethod> combineMethods = new HashMap<String, CombineMethod>();
+class ProgramCombinations {
+    Map<CtClass, ClassCombinations> classCombinationsStorage = new HashMap<CtClass, ClassCombinations>();
 
-    public CombineMethodList(CtClass ctClass) throws NotFoundException, ClassNotFoundException {
-        this.originalClass = ctClass;
-        getAllMethods(ctClass);
+    public ClassCombinations getClassCombinations(CtClass ctClass) throws NotFoundException, ClassNotFoundException {
+        ClassCombinations classCombinations = this.classCombinationsStorage.get(ctClass);
+        if (classCombinations != null)
+            return classCombinations;
+
+        return generateClassCombinations(ctClass);
     }
 
-    private Map<String, Set<CtClass>> getAllMethods(CtClass ctClass) throws NotFoundException, ClassNotFoundException {
-        Map<String, Set<CtClass>> combineReachabilities = new HashMap<String, Set<CtClass>>();
-        for (CtClass ctInterface : ctClass.getInterfaces())
-            mergeCombineReachabilities(ctClass, combineReachabilities, getAllMethods(ctInterface));
+    private ClassCombinations generateClassCombinations(CtClass ctClass)
+            throws NotFoundException, ClassNotFoundException {
+        ClassCombinations classCombinations = new ClassCombinations();
+        this.classCombinationsStorage.put(ctClass, classCombinations);
 
-        getCombineMethods(ctClass, combineReachabilities);
+        for (CtClass ctInterface : ctClass.getInterfaces())
+            mergeClassCombinations(classCombinations, getClassCombinations(ctInterface));
+
+        getCombinationMethods(classCombinations, ctClass);
         CtClass superclass = ctClass.getSuperclass();
         if (superclass != null)
-            mergeCombineReachabilities(ctClass, combineReachabilities, getAllMethods(superclass));
+            mergeClassCombinations(classCombinations, getClassCombinations(superclass));
 
-        updateCombineReachabilities(combineReachabilities);
-        return combineReachabilities;
+        updateClassCombinations(classCombinations, ctClass);
+        return classCombinations;
     }
 
-    private void getCombineMethods(CtClass ctClass, Map<String, Set<CtClass>> outCombineReachabilities)
+    private void getCombinationMethods(ClassCombinations classCombinations, CtClass ctClass)
             throws ClassNotFoundException {
 
-        for (CtMethod ctMethod : ctClass.getDeclaredMethods()) {
-            for (Object annotation : ctMethod.getAnnotations()) {
-                if (annotation instanceof Combination) {
-                    String fixedMethodName = getFixedMethodName(ctMethod.getName());
-                    processCombineMethod(fixedMethodName, ctMethod, (Combination) annotation);
-                    addClassToCombineReachabilities(fixedMethodName, ctClass, outCombineReachabilities);
-                }
-            }
-        }
+        for (CtMethod ctMethod : ctClass.getDeclaredMethods())
+            for (Object annotation : ctMethod.getAnnotations())
+                if (annotation instanceof Combination)
+                    processCombinationMethod(classCombinations, ctClass, ctMethod, (Combination) annotation);
     }
 
-    private void processCombineMethod(String fixedMethodName, CtMethod ctMethod, Combination annotation) {
-        CombineMethod combineMethod = this.combineMethods.get(fixedMethodName);
-        if (combineMethod != null)
-            testCombineMethod(combineMethod, ctMethod, annotation);
+    private void processCombinationMethod(ClassCombinations classCombinations, CtClass ctClass, CtMethod ctMethod,
+            Combination annotation) {
+
+        String fixedMethodName = getFixedMethodName(ctMethod.getName());
+        CombinationMethod combinationMethod = classCombinations.getCombinationMethod(fixedMethodName);
+        if (combinationMethod != null)
+            testCombinationMethod(combinationMethod, ctMethod, annotation);
         else
-            addCombineMethod(fixedMethodName, ctMethod, annotation);
+            addCombinationMethod(classCombinations, fixedMethodName, ctClass, ctMethod, annotation);
     }
 
-    private void testCombineMethod(CombineMethod combineMethod, CtMethod ctMethod, Combination annotation) {
-        if (!combineMethod.getCombineInfo().getValue().equals(annotation.value()))
-            throw new RuntimeException("Error: Combine method <" + ctMethod.getLongName() +
+    private void testCombinationMethod(CombinationMethod combinationMethid, CtMethod ctMethod, Combination annotation) {
+        if (!combinationMethid.getCombinationInfo().getValue().equals(annotation.value()))
+            throw new RuntimeException("Error: Combination method <" + ctMethod.getLongName() +
                     "> must not have two different combination values!");
-        if (!combineMethod.getSignature().equals(ctMethod.getSignature()))
-            throw new RuntimeException("Error: Combine method <" + ctMethod.getLongName() +
+        if (!combinationMethid.getSignature().equals(ctMethod.getSignature()))
+            throw new RuntimeException("Error: Combination method <" + ctMethod.getLongName() +
                     "> must not have two different signatures!");
     }
 
-    private void addCombineMethod(String fixedMethodName, CtMethod ctMethod, Combination annotation) {
-        CombineInfo combineInfo = new CombineInfo(annotation.value());
-        CombineMethod combineMethod = new CombineMethod(fixedMethodName, ctMethod.getSignature(), combineInfo);
-        this.combineMethods.put(ctMethod.getName(), combineMethod);
+    private void addCombinationMethod(ClassCombinations classCombinations, String name, CtClass ctClass,
+            CtMethod ctMethod, Combination annotation) {
+
+        CombinationInfo combinationInfo = new CombinationInfo(annotation.value());
+        CombinationMethod combinationMethod = new CombinationMethod(name, ctMethod.getSignature(), combinationInfo);
+        classCombinations.addCombinationMethod(name, combinationMethod);
+        combinationMethod.addReachableClass(ctClass);
+    }
+
+    private void mergeClassCombinations(ClassCombinations outClassCombinations,
+            ClassCombinations newClassCombinations) {
+        for (Map.Entry<String, CombinationMethod> entry : newClassCombinations.getCombinationMethodStorage()
+                .entrySet()) {
+            CombinationMethod combinationMethod = outClassCombinations.getCombinationMethod(entry.getKey());
+            if (combinationMethod == null) {
+                combinationMethod = new CombinationMethod(entry.getValue());
+                outClassCombinations.addCombinationMethod(entry.getKey(), combinationMethod);
+            }
+
+            combinationMethod.addReachableClasses(entry.getValue().getReachableClasses());
+        }
+    }
+
+    private void updateClassCombinations(ClassCombinations classCombinations, CtClass ctClass) {
+        for (Map.Entry<String, CombinationMethod> entry : classCombinations.getCombinationMethodStorage().entrySet())
+            if (!entry.getValue().getReachableClasses().isEmpty())
+                entry.getValue().addReachableClass(ctClass);
     }
 
     private String getFixedMethodName(String name) {
         return name.split("$")[0];
     }
 
-    private void mergeCombineReachabilities(CtClass ctClass, Map<String, Set<CtClass>> outCombineReachabilities,
-            Map<String, Set<CtClass>> newCombineReachabilities) {
-
-        for (Map.Entry<String, Set<CtClass>> entry : newCombineReachabilities.entrySet()) {
-            Set<CtClass> combineReachability = outCombineReachabilities.get(entry.getKey());
-            if (combineReachability == null) {
-                combineReachability = entry.getValue();
-                outCombineReachabilities.put(entry.getKey(), combineReachability);
-            } else {
-                combineReachability.addAll(entry.getValue());
-            }
-
-            combineReachability.add(ctClass);
-        }
-    }
-
-    private void updateCombineReachabilities(Map<String, Set<CtClass>> combineReachabilities) {
-        for (Map.Entry<String, Set<CtClass>> entry : combineReachabilities.entrySet())
-            for (CtClass ctClass : entry.getValue())
-                this.combineMethods.get(entry.getKey()).addReachableClass(ctClass);
-    }
-
-    private void addClassToCombineReachabilities(String name, CtClass ctClass,
-            Map<String, Set<CtClass>> outCombineReachabilities) {
-
-        Set<CtClass> combineReachability = outCombineReachabilities.get(name);
-        if (combineReachability == null) {
-            combineReachability = new HashSet<CtClass>();
-            outCombineReachabilities.put(name, combineReachability);
+    @Override
+    public String toString() {
+        String programCombinationsStr = "==================== [ Program Combinations ] ====================\n";
+        for (Map.Entry<CtClass, ClassCombinations> entry : this.classCombinationsStorage.entrySet()){
+            programCombinationsStr += "[ " + entry.getKey().getName() + " ]\n";
+            programCombinationsStr += entry.getValue() + "\n\n";
         }
 
-        combineReachability.add(ctClass);
+        return programCombinationsStr;
     }
 }
 
-class CombineMethod {
-    String name;
-    String signature;
-    CombineInfo combineInfo;
-    Set<CtClass> combineReachability;
+class ClassCombinations {
+    Map<String, CombinationMethod> combinationMethodStorage = new HashMap<String, CombinationMethod>();
 
-    public CombineMethod(String name, String signature, CombineInfo combineInfo) {
-        this.name = name;
-        this.signature = signature;
-        this.combineInfo = combineInfo;
-        this.combineReachability = new HashSet<CtClass>();
+    public Map<String, CombinationMethod> getCombinationMethodStorage() {
+        return combinationMethodStorage;
     }
 
-    public String getName() {
-        return name;
+    public CombinationMethod getCombinationMethod(String methodName) {
+        return this.combinationMethodStorage.get(methodName);
     }
 
-    public String getSignature() {
-        return signature;
-    }
-
-    public CombineInfo getCombineInfo() {
-        return combineInfo;
-    }
-
-    public Set<CtClass> combineReachability() {
-        return combineReachability;
-    }
-
-    public void addReachableClass(CtClass ctClass) {
-        this.combineReachability.add(ctClass);
+    public void addCombinationMethod(String methoName, CombinationMethod combinationMethod) {
+        this.combinationMethodStorage.put(methoName, combinationMethod);
     }
 
     @Override
     public String toString() {
-        String combineReachabilityStr = this.combineReachability.stream()
-                .map(c -> c.getName())
-                .reduce("", (str, c) -> (str + ", " + c))
-                .replaceFirst(", ", "");
-
-        return "CombineMethod{name=\'" + this.name +
-                "\', signature=\'" + this.signature +
-                "\', combineInfo=" + this.combineInfo +
-                "\', combineRechability={" + combineReachabilityStr +
-                "}}";
+        String classCombinationsStr = "";
+        for (Map.Entry<String, CombinationMethod> entry : this.combinationMethodStorage.entrySet())
+            classCombinationsStr += " - " + entry.getValue() + "\n";
+        return classCombinationsStr;
     }
 }
 
-class CombineInfo {
+class CombinationMethod {
+    String name;
+    String signature;
+    CombinationInfo combineInfo;
+    Set<CtClass> reachableClasses;
+
+    public CombinationMethod(String name, String signature, CombinationInfo combinationInfo) {
+        this.name = name;
+        this.signature = signature;
+        this.combineInfo = combinationInfo;
+        this.reachableClasses = new HashSet<CtClass>();
+    }
+
+    public CombinationMethod(final CombinationMethod combinationMethod) {
+        this.name = combinationMethod.getName();
+        this.signature = combinationMethod.getSignature();
+        this.combineInfo = new CombinationInfo(combinationMethod.getCombinationInfo());
+        this.reachableClasses = new HashSet<CtClass>();
+        this.reachableClasses.addAll(combinationMethod.getReachableClasses());
+    }
+
+    public String getName() {
+        return this.name;
+    }
+
+    public String getSignature() {
+        return this.signature;
+    }
+
+    public CombinationInfo getCombinationInfo() {
+        return this.combineInfo;
+    }
+
+    public Set<CtClass> getReachableClasses() {
+        return this.reachableClasses;
+    }
+
+    public void addReachableClasses(Set<CtClass> ctClasses) {
+        this.reachableClasses.addAll(ctClasses);
+    }
+
+    public void addReachableClass(CtClass ctClass) {
+        this.reachableClasses.add(ctClass);
+    }
+
+    @Override
+    public String toString() {
+        String combineReachabilityStr = this.reachableClasses.stream()
+                .map(c -> c.getName())
+                .reduce("", (str, c) -> (str + ", " + c));
+
+        combineReachabilityStr = combineReachabilityStr.replaceFirst(", ", "");
+        return "CombineMethod{name=\'" + this.name +
+                "\', signature=\'" + this.signature +
+                "\', combineInfo=" + this.combineInfo +
+                ", combineRechability=[" + combineReachabilityStr +
+                "]}";
+    }
+}
+
+class CombinationInfo {
     String value;
 
-    public CombineInfo(String value) {
+    public CombinationInfo(String value) {
         this.value = value;
+    }
+
+    public CombinationInfo(final CombinationInfo combinationInfo) {
+        this.value = combinationInfo.getValue();
     }
 
     public String getValue() {
