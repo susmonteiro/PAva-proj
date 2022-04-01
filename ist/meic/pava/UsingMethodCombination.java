@@ -1,34 +1,32 @@
 package ist.meic.pava;
 
 import javassist.*;
-import java.io.*;
 import java.lang.reflect.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import javassist.bytecode.annotation.Annotation;
-import javassist.bytecode.AnnotationsAttribute;
 
 // associate listeners to Javassist's class loader
 // automatically process classes - no need to specify the classes we want to apply combination to
 class CombineTranslator implements Translator {
-
-    public static class ClassMethodCombination {
+    private static final Map<String, String> operations = Map.of("or", " || ", "and", " && ");
+    public static class MethodCopy {
         private CtClass ctClass;
         private CtMethod ctMethod;
         private String value;
-        private String originalName;
+        private String name;
 
-        public ClassMethodCombination() {
+        public MethodCopy() {
         }
 
-        public ClassMethodCombination(CtClass ctClass, CtMethod ctMethod, String value, String originalName) {
+        public MethodCopy(CtClass ctClass, CtMethod ctMethod, String value, String name) {
             this.ctClass = ctClass;
             this.ctMethod = ctMethod;
             this.value = value;
-            this.originalName = originalName;
+            this.name = name;
         }
 
         public CtClass ctClass() {
@@ -43,8 +41,8 @@ class CombineTranslator implements Translator {
             return this.value;
         }
 
-        public String originalName() {
-            return this.originalName;
+        public String name() {
+            return this.name;
         }
 
         @Override
@@ -60,42 +58,17 @@ class CombineTranslator implements Translator {
 
         @Override
         public boolean equals(final Object o) {
-            if (!(o instanceof ClassMethodCombination))
+            if (!(o instanceof MethodCopy))
                 return false;
 
-            ClassMethodCombination other = (ClassMethodCombination) o;
+            MethodCopy other = (MethodCopy) o;
             return this.ctClass() == other.ctClass()
                     && this.ctMethod().getLongName().equals(other.ctMethod().getLongName())
                     && this.value() == other.value();
         }
     }
 
-    public static class Tuple {
-        private String ctMethod;
-        private String value;
-
-        public Tuple() {
-        }
-
-        public Tuple(String ctMethod, String value) {
-            this.ctMethod = ctMethod;
-            this.value = value;
-        }
-
-        public String ctMethod() {
-            return this.ctMethod;
-        }
-
-        public String value() {
-            return this.value;
-        }
-    }
-
-    private static final Map<String, String> operations = Map.of("or", " || ", "and", " && ");
-
-    public void start(ClassPool pool) throws NotFoundException, CannotCompileException {
-
-    }
+    public void start(ClassPool pool) throws NotFoundException, CannotCompileException { }
 
     public void onLoad(ClassPool pool, String className) throws NotFoundException, CannotCompileException {
         CtClass ctClass = pool.get(className);
@@ -107,62 +80,62 @@ class CombineTranslator implements Translator {
     }
 
     // Retrieve all the reachable methods from a given class
-
-    static void getAllMethods(CtClass originalClass, CtClass ctClass, List<ClassMethodCombination> allMethodsOut)
+    static void getAllMethods(CtClass originalClass, CtClass ctClass, Map<String, List<MethodCopy>> groupedMethods)
             throws NotFoundException, ClassNotFoundException, CannotCompileException {
+        // System.out.println("GetAllMethods class " + ctClass.getName());
+        getMethodsWithAnnotation(originalClass, ctClass, groupedMethods);
 
                 
         for (CtClass ctInterface : ctClass.getInterfaces()) {
-            getAllMethods(originalClass, ctInterface, allMethodsOut);
-            getMethodsWithAnnotation(originalClass, ctInterface, allMethodsOut);
+            getAllMethods(originalClass, ctInterface, groupedMethods);
         }
 
         CtClass superclass = ctClass.getSuperclass();
-        if (superclass != null) {
-            getAllMethods(originalClass, superclass, allMethodsOut);
-            getMethodsWithAnnotation(originalClass, superclass, allMethodsOut);
+        if (!superclass.getName().equals("java.lang.Object")) {
+            getAllMethods(originalClass, superclass, groupedMethods);
         }
     }
 
     static void getMethodsWithAnnotation(CtClass originalClass, CtClass ctClass,
-            List<ClassMethodCombination> allMethodsOut) throws ClassNotFoundException, CannotCompileException {
+    Map<String, List<MethodCopy>> groupedMethods) throws ClassNotFoundException, CannotCompileException, NotFoundException {
 
         for (CtMethod ctMethod : ctClass.getDeclaredMethods()) {
             for (Object annotation : ctMethod.getAnnotations()) {
                 if (annotation instanceof Combination) {
-                    String fixedName = ctMethod.getName().split("$")[0];
-                    System.out.println("Add method " + fixedName + " to class " + originalClass.getName());
-                    CtMethod newMethod = CtNewMethod.copy(ctMethod, fixedName + "$" + ctClass.getName(), originalClass, null);
                     Combination combination = (Combination) annotation;
-                    allMethodsOut.add(new ClassMethodCombination(ctClass, newMethod, combination.value(), fixedName));
+                    String key = ctMethod.getName() + ctMethod.getSignature() + ctMethod.getReturnType() + combination.value();
+                    String fixedName = ctMethod.getName().split("$")[0];
+                    // ! if methods from different classes have the same name it doesn't work... with a very strange behaviour... why?
+                    CtMethod newMethod = CtNewMethod.copy(ctMethod, fixedName + "$" + ctClass.getName() + "$" + originalClass.getName(), originalClass, null);
+
+                    addToGroupedMethods(groupedMethods, new MethodCopy(ctClass, newMethod, combination.value(), fixedName), key);
                 }
             }        
         }
     }
 
-    static Map<Tuple, List<ClassMethodCombination>> groupMethods(List<ClassMethodCombination> CMCs) {
-        return CMCs.stream().collect(Collectors.groupingBy(cmc -> new Tuple(cmc.ctMethod().getName(), cmc.value())));
+    static Map<String, List<MethodCopy>> addToGroupedMethods(Map<String, List<MethodCopy>> groupedMethods, MethodCopy method, String key) {
+        List<MethodCopy> lst = groupedMethods.putIfAbsent(key, new ArrayList<MethodCopy>(Arrays.asList(method)));
+        if (lst != null) lst.add(method);
+        // else System.out.println(method.ctMethod().getName());
+
+        return groupedMethods;
     }
 
     static void combineMethods(CtClass ctClass)
             throws ClassNotFoundException, CannotCompileException, NotFoundException {
         // debug
         // System.out.println("Class: " + ctClass.getName());
+        Map<String, List<MethodCopy>> groupedMethods = new HashMap<String, List<MethodCopy>>();
+        
 
-        List<ClassMethodCombination> allMethods = new ArrayList<ClassMethodCombination>();
-        getAllMethods(ctClass, ctClass, allMethods);
-        Map<Tuple, List<ClassMethodCombination>> methodsGrouped = groupMethods(
-            allMethods.stream().distinct().collect(Collectors.toList())
-        );
-
-        for (Map.Entry<Tuple, List<ClassMethodCombination>> group : methodsGrouped.entrySet()) {
-            combine(ctClass, group.getValue(), group.getKey().value());
+        getAllMethods(ctClass, ctClass, groupedMethods);
+        for (List<MethodCopy> group : groupedMethods.values()) {
+            // remove repeated methods
+            group = group.stream().distinct().collect(Collectors.toList());
+            // group.stream().forEach(el -> System.out.println(el));
+            combine(ctClass, group, group.get(0).value());
         }
-        // System.out.println("\n==================================\n" + ctClass.getName());
-        // for (ClassMethodCombination classMethodCombination : allMethods.stream().distinct()
-        //         .collect(Collectors.toList()))
-        //     System.out.println(classMethodCombination);
-
         // printMethods(ctClass, true);
     }
 
@@ -194,7 +167,7 @@ class CombineTranslator implements Translator {
         }
     }
 
-    static void combine(CtClass ctClass, List<ClassMethodCombination> groupOfMethods, String value)
+    static void combine(CtClass ctClass, List<MethodCopy> groupOfMethods, String value)
             throws CannotCompileException, NotFoundException, ClassNotFoundException {
 
         if (value.equals("standard"))
@@ -202,7 +175,7 @@ class CombineTranslator implements Translator {
             System.out.println("Combine Standard");
 
         else if (operations.containsKey(value)) {
-            combineSimple(ctClass, groupOfMethods);
+            combineSimple(ctClass, groupOfMethods, operations.get(value));
             // System.out.println("Combine Simple");
         } else {
             System.err.println("Valid operations are 'or', 'and' and 'standard'");
@@ -210,44 +183,76 @@ class CombineTranslator implements Translator {
         }
     }
 
-    static void combineSimple(CtClass ctClass, List<ClassMethodCombination> CMCs)
+    static void combineSimple(CtClass ctClass, List<MethodCopy> methods, String op)
             throws CannotCompileException, NotFoundException, ClassNotFoundException {
 
-                
-        ClassMethodCombination first = CMCs.get(0);
-        CtMethod oneMethod = first.ctMethod();
-        String operation = operations.get(first.value());
-        CtMethod ctMethod;
-        System.out.println("Combine simple for class " + ctClass.getName());
-
+        String name = methods.get(0).name();
+        CtMethod template = methods.get(0).ctMethod();
+        // String body = "{ System.out.println(\"Inside class " + ctClass.getName() + "\"); return ";
         String body = "{ return ";
-        for (ClassMethodCombination cmc : CMCs) {
-            String name = cmc.ctMethod().getName();
-            System.out.println("\tAdd " + cmc.ctMethod().getName() + " to " + ctClass.getName());
+        // System.out.println("Combine simple from " + ctClass.getName() + " and method " + name);
 
-            ctClass.addMethod(cmc.ctMethod());
-
-            body += name + "($$)" + operation;
+        for (MethodCopy method : methods) {
+            ctClass.addMethod(method.ctMethod());
+            body += method.ctMethod().getName() + "($$)" + op;
+            // String mName = method.ctMethod().getName();
         }
 
-        ctMethod = getCtDeclaredMethod(ctClass, first.originalName(), oneMethod.getParameterTypes());
-        // System.out.println("CT METHOD "+ ctMethod.getName());
-        if (ctMethod == null) {
-            // method does not exist yet
-            ctMethod = CtNewMethod.copy(oneMethod, first.originalName(), ctClass, null);
-            System.out.println("\tAdd method " + first.originalName() + " to class " + ctClass.getName());
-            body = body.substring(0, body.length() - operation.length()) + "; }";
-        } else {
-            ctMethod.setName(first.originalName() + "$original");
-            ctMethod = CtNewMethod.copy(ctMethod, first.originalName(), ctClass, null);
-            body += first.originalName() + "($$); }";
+        body = body.substring(0, body.length() - op.length()) + "; }";
+
+        // check if method already exists
+        CtMethod mainMethod = getCtDeclaredMethod(ctClass, name, template.getParameterTypes());
+
+
+        if (mainMethod == null) {
+            // System.out.println("Creating new main method: " + name);
+            mainMethod = CtNewMethod.copy(template, name, ctClass, null);
+            mainMethod.setBody(body);
+            ctClass.addMethod(mainMethod);
         }
         
-        System.out.println("\t" + body);
+        mainMethod.setBody(body);
+
+        // System.out.println(body);
+
+        CtMethod[] classMethods = ctClass.getDeclaredMethods();
+        // for (CtMethod methoda : classMethods) System.out.println(methoda.getName());
 
 
-        ctMethod.setBody(body);
-        ctClass.addMethod(ctMethod);
+        // MethodCopy first = CMCs.get(0);
+        // CtMethod oneMethod = first.ctMethod();
+        // String operation = operations.get(first.value());
+        // CtMethod ctMethod;
+        // System.out.println("Combine simple for class " + ctClass.getName());
+
+        // String body = "{ return ";
+        // for (MethodCopy cmc : CMCs) {
+        //     String name = cmc.ctMethod().getName();
+            // System.out.println("\tAdd " + cmc.ctMethod().getName() + " to " + ctClass.getName());
+
+        //     ctClass.addMethod(cmc.ctMethod());
+
+        //     body += name + "($$)" + operation;
+        // }
+
+        // ctMethod = getCtDeclaredMethod(ctClass, first.name(), oneMethod.getParameterTypes());
+        // System.out.println("CT METHOD "+ ctMethod.getName());
+        // if (ctMethod == null) {
+            // method does not exist yet
+            // ctMethod = CtNewMethod.copy(oneMethod, first.name(), ctClass, null);
+            // System.out.println("\tAdd method " + first.name() + " to class " + ctClass.getName());
+        //     body = body.substring(0, body.length() - operation.length()) + "; }";
+        // } else {
+        //     ctMethod.setName(first.name() + "$original");
+        //     ctMethod = CtNewMethod.copy(ctMethod, first.name(), ctClass, null);
+        //     body += first.name() + "($$); }";
+        // }
+        
+        // System.out.println("\t" + body);
+
+
+        // ctMethod.setBody(body);
+        // ctClass.addMethod(ctMethod);
     }
 
     static void combineStandard(CtClass ctClass, CtMethod ctMethod, String value)
