@@ -18,7 +18,6 @@ class Person  {
     }
 }
 
-
 class Student extends Person  {
     String school;
 
@@ -31,11 +30,11 @@ class Student extends Person  {
         System.out.print("Student ");
     }
 
-    // @Combination("or")
-    // public boolean isHardWorker() {
-    //     System.out.println("Student.isHardWorker.");
-    //     return isGoodSchool(school);
-    // }
+    @Combination("or")
+    public boolean isHardWorker() {
+        System.out.println("Student.isHardWorker.");
+        return isGoodSchool(school);
+    }
 
     public boolean isGoodSchool(String school) {
         return school.equals("FEUP") || school.equals("FCT");
@@ -71,17 +70,7 @@ class ISTStudent extends Student implements HardWorker, NotHardWorker {
         super(name, "IST");
     }
 
-    // @Combination("or")
-    // public boolean isHardWorker() {
-    //     System.out.println("ISTStudent.isHardWorker.");
-    //     return false;
-    // }
 
-    // ! how to call interface methods
-    // @Combination("or")
-    // public boolean isHardWorker() {
-    //     return HardWorker.super.isHardWorker();
-    // }
 
     public void before_print_name() {
         System.out.print("IST-");
