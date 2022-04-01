@@ -83,7 +83,7 @@ class CombineTranslator implements Translator {
     static void getAllMethods(CtClass originalClass, CtClass ctClass, Map<String, List<MethodCopy>> groupedMethods)
             throws NotFoundException, ClassNotFoundException, CannotCompileException {
         // System.out.println("GetAllMethods class " + ctClass.getName());
-        getMethodsWithAnnotation(originalClass, ctClass, groupedMethods);
+        if (!originalClass.equals(ctClass)) getMethodsWithAnnotation(originalClass, ctClass, groupedMethods);
 
                 
         for (CtClass ctInterface : ctClass.getInterfaces()) {
@@ -103,11 +103,9 @@ class CombineTranslator implements Translator {
             for (Object annotation : ctMethod.getAnnotations()) {
                 if (annotation instanceof Combination) {
                     Combination combination = (Combination) annotation;
-                    String key = ctMethod.getName() + ctMethod.getSignature() + ctMethod.getReturnType() + combination.value();
-                    String fixedName = ctMethod.getName().split("$")[0];
-                    // ! if methods from different classes have the same name it doesn't work... with a very strange behaviour... why?
-                    CtMethod newMethod = CtNewMethod.copy(ctMethod, fixedName + "$" + ctClass.getName() + "$" + originalClass.getName(), originalClass, null);
-
+                    String fixedName = ctMethod.getName().split("\\$")[0];
+                    String key = fixedName + ctMethod.getSignature() + ctMethod.getReturnType() + combination.value();
+                    CtMethod newMethod = CtNewMethod.copy(ctMethod, fixedName + "$" + ctClass.getName(), originalClass, null);
                     addToGroupedMethods(groupedMethods, new MethodCopy(ctClass, newMethod, combination.value(), fixedName), key);
                 }
             }        
@@ -117,7 +115,7 @@ class CombineTranslator implements Translator {
     static Map<String, List<MethodCopy>> addToGroupedMethods(Map<String, List<MethodCopy>> groupedMethods, MethodCopy method, String key) {
         List<MethodCopy> lst = groupedMethods.putIfAbsent(key, new ArrayList<MethodCopy>(Arrays.asList(method)));
         if (lst != null) lst.add(method);
-        // else System.out.println(method.ctMethod().getName());
+        // else System.out.println("Creating new key for method " + method.ctMethod().getName() + " and key " + key);
 
         return groupedMethods;
     }
@@ -192,6 +190,17 @@ class CombineTranslator implements Translator {
         String body = "{ return ";
         // System.out.println("Combine simple from " + ctClass.getName() + " and method " + name);
 
+        CtMethod originalMethod = getCtDeclaredMethod(ctClass, name, template.getParameterTypes());
+        CtMethod newMethod;
+
+        if (originalMethod == null) {
+            newMethod = CtNewMethod.copy(template, name, ctClass, null);
+        } else {
+            newMethod = CtNewMethod.copy(originalMethod, name, ctClass, null);
+            originalMethod.setName(name + "$original");
+            body += name + "$original($$)" + op;
+        }
+
         for (MethodCopy method : methods) {
             ctClass.addMethod(method.ctMethod());
             body += method.ctMethod().getName() + "($$)" + op;
@@ -199,24 +208,17 @@ class CombineTranslator implements Translator {
         }
 
         body = body.substring(0, body.length() - op.length()) + "; }";
+        newMethod.setBody(body);
+        ctClass.addMethod(newMethod);
 
         // check if method already exists
-        CtMethod mainMethod = getCtDeclaredMethod(ctClass, name, template.getParameterTypes());
-
-
-        if (mainMethod == null) {
-            // System.out.println("Creating new main method: " + name);
-            mainMethod = CtNewMethod.copy(template, name, ctClass, null);
-            mainMethod.setBody(body);
-            ctClass.addMethod(mainMethod);
-        }
         
-        mainMethod.setBody(body);
-
+        
         // System.out.println(body);
 
-        CtMethod[] classMethods = ctClass.getDeclaredMethods();
-        // for (CtMethod methoda : classMethods) System.out.println(methoda.getName());
+        // CtMethod[] classMethods = ctClass.getDeclaredMethods();
+        // for (CtMethod methoda : classMethods) System.out.println("\t" + methoda.getName());
+        // printMethods(ctClass, true);
 
 
         // MethodCopy first = CMCs.get(0);
