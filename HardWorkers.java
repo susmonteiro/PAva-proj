@@ -32,6 +32,11 @@ class Student extends Person {
         System.out.print("Student ");
     }
 
+    @Combination("standard")
+    public void after_print_name() {
+        System.out.print(" and a student");
+    }
+
     @Combination("or")
     public boolean isHardWorker() {
         // System.out.println("Student.isHardWorker.");
@@ -105,6 +110,11 @@ class ForeignStudent extends Student implements Foreign {
 class ForeignISTStudent extends ISTStudent implements Foreign {
     public ForeignISTStudent(String name) {
         super(name);
+    }
+
+    @Combination("standard")
+    public void after_print_name() {
+        System.out.print(" (ist student yooo)");
     }
 }
 

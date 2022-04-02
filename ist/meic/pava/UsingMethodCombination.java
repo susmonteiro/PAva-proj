@@ -4,7 +4,6 @@ import javassist.*;
 import java.lang.reflect.*;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -144,7 +143,7 @@ class CombineTranslator implements Translator {
 
         for (MethodCopy method : methods) {
             // already took care of original method from class
-            if (method.ctMethod().getName().equals(name + "$" + ctClass.getName())) continue;
+            if (method.ctClass().getName().equals(ctClass.getName())) continue;
             ctClass.addMethod(method.ctMethod());
             body += method.ctMethod().getName() + "($$)" + op;
         }
@@ -156,7 +155,6 @@ class CombineTranslator implements Translator {
 
     static void combineStandard(CtClass ctClass, List<MethodCopy> methods)
             throws CannotCompileException, NotFoundException, ClassNotFoundException {
-        // System.out.println("Class " + ctClass.getName() + " and method " + methods.get(0).name());
 
         String name = methods.get(0).name();
         CtMethod template = methods.get(0).ctMethod();
@@ -164,23 +162,20 @@ class CombineTranslator implements Translator {
 
         List<MethodCopy> before = new ArrayList<MethodCopy>();
         List<MethodCopy> after = new ArrayList<MethodCopy>();
-
         MethodCopy primary = null;
 
         for (MethodCopy method : methods) {
             if (method.symbol().equals("before")) before.add(method);   
-            else if (method.symbol().equals("after")) after.add(method);
+            else if (method.symbol().equals("after")) after.add(0, method);
             else if (method.symbol().equals("") && primary == null) primary = method;
         }
 
-        if (primary == null) {
-            // there is no primary method
-            // ? does it make sense to call anything if the primary method does not exist?
-            return;
-        } 
+        // there is no primary method
+        // ? does it make sense to call anything if the primary method does not exist?
+        if (primary == null) return;
 
         for (MethodCopy method : before) {
-            if (method.ctMethod().getName().equals(name + "$" + ctClass.getName())) {
+            if (method.ctClass().getName().equals(ctClass.getName())) {
                 body += "before_" + name + "($$); ";
             } else {
                 ctClass.addMethod(method.ctMethod());
@@ -194,38 +189,24 @@ class CombineTranslator implements Translator {
             original.setName(name + "$original");
             body += name + "$original($$); ";
         } else {
+            // otherwise, copy the method
+            // ? do we need to take care of returning types? Or we assume the function is always void?
             ctClass.addMethod(primary.ctMethod());
             body += primary.ctMethod.getName() + "($$); ";
         }
 
-        // after methods are called from least specific to most specific
-        Collections.reverse(after);
-
         for (MethodCopy method : after) {
-            if (method.ctMethod().getName().equals(name + "$" + ctClass.getName())) {
+            if (method.ctClass().getName().equals(ctClass.getName())) {
                 body += "after_" + name + "($$); ";
             } else {
                 ctClass.addMethod(method.ctMethod());
                 body += method.ctMethod().getName() + "($$); ";
             }
-        } 
-
-        body += "}";
+        }
 
         CtMethod ctMethod = CtNewMethod.copy(template, name, ctClass, null);
-        ctMethod.setBody(body);
+        ctMethod.setBody(body + "}");
         ctClass.addMethod(ctMethod);
-
-        // System.out.println("BODY:\t\t" + body);
-
-
-        // System.out.println("  > Before Methods");
-        // before.stream().forEach(el -> System.out.println("\t" + el));
-        // System.out.println("  > Primary Method");
-        // System.out.println("\t" + primary);
-        // System.out.println("  > After Methods");
-        // after.stream().forEach(el -> System.out.println("\t" + el));
-
     }
 
     // ===== help methods ===
