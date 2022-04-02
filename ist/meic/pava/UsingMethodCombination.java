@@ -13,12 +13,14 @@ import java.util.stream.Collectors;
 // automatically process classes - no need to specify the classes we want to apply combination to
 class CombineTranslator implements Translator {
     private static final Map<String, String> operations = Map.of("or", " || ", "and", " && ");
+    private static final List<String> symbols = Arrays.asList("before", "after");
 
     public static class MethodCopy {
         private CtClass ctClass;
         private CtMethod ctMethod;
         private String value;
         private String name;
+        private String symbol;
 
         public MethodCopy() {
         }
@@ -28,6 +30,11 @@ class CombineTranslator implements Translator {
             this.ctMethod = ctMethod;
             this.value = value;
             this.name = name;
+        }
+
+        public MethodCopy(CtClass ctClass, CtMethod ctMethod, String value, String name, String symbol) {
+            this(ctClass, ctMethod, value, name);
+            this.symbol = symbol;
         }
 
         public CtClass ctClass() {
@@ -46,10 +53,14 @@ class CombineTranslator implements Translator {
             return this.name;
         }
 
+        public String symbol() {
+            return this.symbol;
+        }
+
         @Override
         public String toString() {
             return "Method <" + ctMethod.getName() + "> from Class <" + ctClass.getName() + "> with the value \""
-                    + value + "\"";
+                    + value + "\"" + " and symbol \"" + symbol + "\"";
         }
 
         @Override
@@ -100,7 +111,7 @@ class CombineTranslator implements Translator {
             throws CannotCompileException, NotFoundException, ClassNotFoundException {
 
         if (value.equals("standard"))
-            System.out.println("Combine Standard");
+            combineStandard(ctClass, groupOfMethods);
 
         else if (operations.containsKey(value)) {
             combineSimple(ctClass, groupOfMethods, operations.get(value));
@@ -119,7 +130,6 @@ class CombineTranslator implements Translator {
 
         // get previously declared method in the class, if it exists
         CtMethod ctMethod = getCtDeclaredMethod(ctClass, name, template.getParameterTypes());
-        CtMethod newMethod;
 
         if (ctMethod == null) {
             ctMethod = CtNewMethod.copy(template, name, ctClass, null);
@@ -140,9 +150,27 @@ class CombineTranslator implements Translator {
         ctClass.addMethod(ctMethod);
     }
 
-    static void combineStandard(CtClass ctClass, CtMethod ctMethod, String value)
+    static void combineStandard(CtClass ctClass, List<MethodCopy> methods)
             throws CannotCompileException, NotFoundException, ClassNotFoundException {
-        // todo implement
+        System.out.println("Class " + ctClass.getName());
+        // methods.stream().forEach(el -> System.out.println("\t" + el));
+
+        List<MethodCopy> before = new ArrayList<MethodCopy>(), after = new ArrayList<MethodCopy>();
+        MethodCopy primary = null;
+
+        for (MethodCopy method : methods) {
+            if (method.symbol().equals("before")) before.add(method);
+            else if (method.symbol().equals("after")) after.add(method);
+            else if (method.symbol().equals("") && primary != null) primary = method;
+        }
+
+        System.out.println("  > Before Methods");
+        before.stream().forEach(el -> System.out.println("\t" + el));
+        System.out.println("  > Primary Method");
+        System.out.println("\t" + primary);
+        System.out.println("  > After Methods");
+        after.stream().forEach(el -> System.out.println("\t" + el));
+
     }
 
     // ===== help methods ===
@@ -172,9 +200,17 @@ class CombineTranslator implements Translator {
                 if (annotation instanceof Combination) {
                     Combination combination = (Combination) annotation;
                     String fixedName = ctMethod.getName().split("\\$")[0];
+                    String symbol = "";
+                    if (combination.value().equals("standard")) {
+                        String[] parts = fixedName.split("_", 2);
+                        if (symbols.contains(parts[0])) {
+                            symbol = parts[0];
+                            fixedName = parts[1];
+                        }
+                    }
                     String key = fixedName + ctMethod.getSignature() + ctMethod.getReturnType() + combination.value();
                     CtMethod newMethod = CtNewMethod.copy(ctMethod, fixedName + "$" + ctClass.getName(), originalClass, null);
-                    addToGroupedMethods(groupedMethods, new MethodCopy(ctClass, newMethod, combination.value(), fixedName), key);
+                    addToGroupedMethods(groupedMethods, new MethodCopy(ctClass, newMethod, combination.value(), fixedName, symbol), key);
                 }
             }
         }
@@ -192,8 +228,6 @@ class CombineTranslator implements Translator {
 
         return groupedMethods;
     }
-
-    
 
     // ! debug function, remove me
     static void printMethods(CtClass ctClass, boolean annot) throws ClassNotFoundException {
