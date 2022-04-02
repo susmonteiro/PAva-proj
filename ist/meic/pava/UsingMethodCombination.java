@@ -119,7 +119,6 @@ class CombineTranslator implements Translator {
 
         // get previously declared method in the class, if it exists
         CtMethod ctMethod = getCtDeclaredMethod(ctClass, name, template.getParameterTypes());
-        CtMethod newMethod;
 
         if (ctMethod == null) {
             ctMethod = CtNewMethod.copy(template, name, ctClass, null);
@@ -131,6 +130,8 @@ class CombineTranslator implements Translator {
         }
 
         for (MethodCopy method : methods) {
+            // already took care of original method from class
+            if (method.ctMethod().getName().equals(name + "$" + ctClass.getName())) continue;
             ctClass.addMethod(method.ctMethod());
             body += method.ctMethod().getName() + "($$)" + op;
         }
@@ -150,8 +151,7 @@ class CombineTranslator implements Translator {
     // Retrieve all the reachable methods from a given class
     static void getAllMethods(CtClass originalClass, CtClass ctClass, Map<String, List<MethodCopy>> groupedMethods)
             throws NotFoundException, ClassNotFoundException, CannotCompileException {
-        if (!originalClass.equals(ctClass))
-            getMethodsWithAnnotation(originalClass, ctClass, groupedMethods);
+        getMethodsWithAnnotation(originalClass, ctClass, groupedMethods);
 
         for (CtClass ctInterface : ctClass.getInterfaces()) {
             getAllMethods(originalClass, ctInterface, groupedMethods);
