@@ -4,6 +4,7 @@ import javassist.*;
 import java.lang.reflect.*;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -76,7 +77,8 @@ class CombineTranslator implements Translator {
             MethodCopy other = (MethodCopy) o;
             return this.ctClass() == other.ctClass()
                     && this.ctMethod().getLongName().equals(other.ctMethod().getLongName())
-                    && this.value() == other.value();
+                    && this.value() == other.value()
+                    && this.symbol() == other.symbol();
         }
     }
 
@@ -154,24 +156,75 @@ class CombineTranslator implements Translator {
 
     static void combineStandard(CtClass ctClass, List<MethodCopy> methods)
             throws CannotCompileException, NotFoundException, ClassNotFoundException {
-        System.out.println("Class " + ctClass.getName());
-        // methods.stream().forEach(el -> System.out.println("\t" + el));
+        // System.out.println("Class " + ctClass.getName() + " and method " + methods.get(0).name());
 
-        List<MethodCopy> before = new ArrayList<MethodCopy>(), after = new ArrayList<MethodCopy>();
+        String name = methods.get(0).name();
+        CtMethod template = methods.get(0).ctMethod();
+        String body = "{ ";
+
+        List<MethodCopy> before = new ArrayList<MethodCopy>();
+        List<MethodCopy> after = new ArrayList<MethodCopy>();
+
         MethodCopy primary = null;
 
         for (MethodCopy method : methods) {
-            if (method.symbol().equals("before")) before.add(method);
+            if (method.symbol().equals("before")) before.add(method);   
             else if (method.symbol().equals("after")) after.add(method);
-            else if (method.symbol().equals("") && primary != null) primary = method;
+            else if (method.symbol().equals("") && primary == null) primary = method;
         }
 
-        System.out.println("  > Before Methods");
-        before.stream().forEach(el -> System.out.println("\t" + el));
-        System.out.println("  > Primary Method");
-        System.out.println("\t" + primary);
-        System.out.println("  > After Methods");
-        after.stream().forEach(el -> System.out.println("\t" + el));
+        if (primary == null) {
+            // there is no primary method
+            // ? does it make sense to call anything if the primary method does not exist?
+            return;
+        } 
+
+        for (MethodCopy method : before) {
+            if (method.ctMethod().getName().equals(name + "$" + ctClass.getName())) {
+                body += "before_" + name + "($$); ";
+            } else {
+                ctClass.addMethod(method.ctMethod());
+                body += method.ctMethod().getName() + "($$); ";
+            }
+        } 
+        
+        if (primary.ctClass().equals(ctClass)) {
+            // if the method exists in this class, we need to create a copy
+            CtMethod original = getCtDeclaredMethod(ctClass, name, template.getParameterTypes());
+            original.setName(name + "$original");
+            body += name + "$original($$); ";
+        } else {
+            ctClass.addMethod(primary.ctMethod());
+            body += primary.ctMethod.getName() + "($$); ";
+        }
+
+        // after methods are called from least specific to most specific
+        Collections.reverse(after);
+
+        for (MethodCopy method : after) {
+            if (method.ctMethod().getName().equals(name + "$" + ctClass.getName())) {
+                body += "after_" + name + "($$); ";
+            } else {
+                ctClass.addMethod(method.ctMethod());
+                body += method.ctMethod().getName() + "($$); ";
+            }
+        } 
+
+        body += "}";
+
+        CtMethod ctMethod = CtNewMethod.copy(template, name, ctClass, null);
+        ctMethod.setBody(body);
+        ctClass.addMethod(ctMethod);
+
+        // System.out.println("BODY:\t\t" + body);
+
+
+        // System.out.println("  > Before Methods");
+        // before.stream().forEach(el -> System.out.println("\t" + el));
+        // System.out.println("  > Primary Method");
+        // System.out.println("\t" + primary);
+        // System.out.println("  > After Methods");
+        // after.stream().forEach(el -> System.out.println("\t" + el));
 
     }
 
@@ -201,17 +254,18 @@ class CombineTranslator implements Translator {
                 if (annotation instanceof Combination) {
                     Combination combination = (Combination) annotation;
                     String fixedName = ctMethod.getName().split("\\$")[0];
+                    String keyName = fixedName;
                     String symbol = "";
                     if (combination.value().equals("standard")) {
                         String[] parts = fixedName.split("_", 2);
                         if (symbols.contains(parts[0])) {
                             symbol = parts[0];
-                            fixedName = parts[1];
+                            keyName = parts[1];
                         }
                     }
-                    String key = fixedName + ctMethod.getSignature() + ctMethod.getReturnType() + combination.value();
+                    String key = keyName + ctMethod.getSignature() + ctMethod.getReturnType() + combination.value();
                     CtMethod newMethod = CtNewMethod.copy(ctMethod, fixedName + "$" + ctClass.getName(), originalClass, null);
-                    addToGroupedMethods(groupedMethods, new MethodCopy(ctClass, newMethod, combination.value(), fixedName, symbol), key);
+                    addToGroupedMethods(groupedMethods, new MethodCopy(ctClass, newMethod, combination.value(), keyName, symbol), key);
                 }
             }
         }
