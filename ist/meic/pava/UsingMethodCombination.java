@@ -1,45 +1,103 @@
 package ist.meic.pava;
 
+import javassist.*;
+import java.io.*;
+import java.lang.reflect.*;
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.stream.Collectors;
+import javassist.bytecode.annotation.Annotation;
+import javassist.bytecode.AnnotationsAttribute;
 
-import javassist.ClassPool;
-import javassist.CtClass;
-import javassist.CtMethod;
-import javassist.Loader;
-import javassist.NotFoundException;
-import javassist.Translator;
+// associate listeners to Javassist's class loader
+// automatically process classes - no need to specify the classes we want to apply combination to
+class CombineTranslator implements Translator {
 
-public class UsingMethodCombination {
+    public static class ClassMethodCombination {
+        private CtClass ctClass;
+        private CtMethod ctMethod;
+        private String value;
+        private String originalName;
 
-    public static void main(String[] args) throws Throwable {
+        public ClassMethodCombination() {
+        }
 
-        if (args.length != 1) {
-            System.err.println("Usage: java -classpath javassist.jar:. ist.meic.pava.UsingMethodCombination <class>");
-            System.exit(1);
-        } else {
-            Translator translator = new CombinationTranslator();
-            ClassPool pool = ClassPool.getDefault();
-            Loader classLoader = new Loader();
-            classLoader.addTranslator(pool, translator);
+        public ClassMethodCombination(CtClass ctClass, CtMethod ctMethod, String value, String originalName) {
+            this.ctClass = ctClass;
+            this.ctMethod = ctMethod;
+            this.value = value;
+            this.originalName = originalName;
+        }
 
-            String[] restArgs = new String[args.length - 1];
-            System.arraycopy(args, 1, restArgs, 0, restArgs.length);
-            classLoader.run(args[0], restArgs);
+        public CtClass ctClass() {
+            return this.ctClass;
+        }
+
+        public CtMethod ctMethod() {
+            return this.ctMethod;
+        }
+
+        public String value() {
+            return this.value;
+        }
+
+        public String originalName() {
+            return this.originalName;
+        }
+
+        @Override
+        public String toString() {
+            return "Method <" + ctMethod.getName() + "> from Class <" + ctClass.getName() + "> with the value \""
+                    + value + "\"";
+        }
+
+        @Override
+        public int hashCode() {
+            return this.ctMethod().getLongName().hashCode();
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (!(o instanceof ClassMethodCombination))
+                return false;
+
+            ClassMethodCombination other = (ClassMethodCombination) o;
+            return this.ctClass() == other.ctClass()
+                    && this.ctMethod().getLongName().equals(other.ctMethod().getLongName())
+                    && this.value() == other.value();
         }
     }
-}
 
-class CombinationTranslator implements Translator {
-    private final ProgramCombinations programCombinations = new ProgramCombinations();
+    public static class Tuple {
+        private String ctMethod;
+        private String value;
 
-    public void start(ClassPool pool) {
+        public Tuple() {
+        }
+
+        public Tuple(String ctMethod, String value) {
+            this.ctMethod = ctMethod;
+            this.value = value;
+        }
+
+        public String ctMethod() {
+            return this.ctMethod;
+        }
+
+        public String value() {
+            return this.value;
+        }
+    }
+
+    private static final Map<String, String> operations = Map.of("or", " || ", "and", " && ");
+
+    public void start(ClassPool pool) throws NotFoundException, CannotCompileException {
 
     }
 
-    public void onLoad(ClassPool pool, String className) throws NotFoundException {
+    public void onLoad(ClassPool pool, String className) throws NotFoundException, CannotCompileException {
         CtClass ctClass = pool.get(className);
         try {
             combineMethods(ctClass);
@@ -48,214 +106,171 @@ class CombinationTranslator implements Translator {
         }
     }
 
-    public void combineMethods(CtClass ctClass) throws NotFoundException, ClassNotFoundException {
-        ClassCombinations classCombinations = this.programCombinations.getClassCombinations(ctClass);
-    }
-}
+    // Retrieve all the reachable methods from a given class
 
-class ProgramCombinations {
-    Map<CtClass, ClassCombinations> classCombinationsStorage = new HashMap<CtClass, ClassCombinations>();
+    static void getAllMethods(CtClass originalClass, CtClass ctClass, List<ClassMethodCombination> allMethodsOut)
+            throws NotFoundException, ClassNotFoundException, CannotCompileException {
 
-    public ClassCombinations getClassCombinations(CtClass ctClass) throws NotFoundException, ClassNotFoundException {
-        ClassCombinations classCombinations = this.classCombinationsStorage.get(ctClass);
-        if (classCombinations != null)
-            return classCombinations;
+                
+        for (CtClass ctInterface : ctClass.getInterfaces()) {
+            getAllMethods(originalClass, ctInterface, allMethodsOut);
+            getMethodsWithAnnotation(originalClass, ctInterface, allMethodsOut);
+        }
 
-        return generateClassCombinations(ctClass);
-    }
-
-    private ClassCombinations generateClassCombinations(CtClass ctClass)
-            throws NotFoundException, ClassNotFoundException {
-        ClassCombinations classCombinations = new ClassCombinations();
-        this.classCombinationsStorage.put(ctClass, classCombinations);
-
-        for (CtClass ctInterface : ctClass.getInterfaces())
-            mergeClassCombinations(classCombinations, getClassCombinations(ctInterface));
-
-        getCombinationMethods(classCombinations, ctClass);
         CtClass superclass = ctClass.getSuperclass();
-        if (superclass != null)
-            mergeClassCombinations(classCombinations, getClassCombinations(superclass));
-
-        updateClassCombinations(classCombinations, ctClass);
-        return classCombinations;
-    }
-
-    private void getCombinationMethods(ClassCombinations classCombinations, CtClass ctClass)
-            throws ClassNotFoundException {
-
-        for (CtMethod ctMethod : ctClass.getDeclaredMethods())
-            for (Object annotation : ctMethod.getAnnotations())
-                if (annotation instanceof Combination)
-                    processCombinationMethod(classCombinations, ctClass, ctMethod, (Combination) annotation);
-    }
-
-    private void processCombinationMethod(ClassCombinations classCombinations, CtClass ctClass, CtMethod ctMethod,
-            Combination annotation) {
-
-        String fixedMethodName = getFixedMethodName(ctMethod.getName());
-        CombinationMethod combinationMethod = classCombinations.getCombinationMethod(fixedMethodName);
-        if (combinationMethod != null)
-            testCombinationMethod(combinationMethod, ctMethod, annotation);
-        else
-            addCombinationMethod(classCombinations, fixedMethodName, ctClass, ctMethod, annotation);
-    }
-
-    private void testCombinationMethod(CombinationMethod combinationMethid, CtMethod ctMethod, Combination annotation) {
-        if (!combinationMethid.getCombinationInfo().getValue().equals(annotation.value()))
-            throw new RuntimeException("Error: Combination method <" + ctMethod.getLongName() +
-                    "> must not have two different combination values!");
-        if (!combinationMethid.getSignature().equals(ctMethod.getSignature()))
-            throw new RuntimeException("Error: Combination method <" + ctMethod.getLongName() +
-                    "> must not have two different signatures!");
-    }
-
-    private void addCombinationMethod(ClassCombinations classCombinations, String name, CtClass ctClass,
-            CtMethod ctMethod, Combination annotation) {
-
-        CombinationInfo combinationInfo = new CombinationInfo(annotation.value());
-        CombinationMethod combinationMethod = new CombinationMethod(name, ctMethod.getSignature(), combinationInfo);
-        classCombinations.addCombinationMethod(name, combinationMethod);
-        combinationMethod.addReachableClass(ctClass);
-    }
-
-    private void mergeClassCombinations(ClassCombinations outClassCombinations,
-            ClassCombinations newClassCombinations) {
-        for (Map.Entry<String, CombinationMethod> entry : newClassCombinations.getCombinationMethodStorage()
-                .entrySet()) {
-            CombinationMethod combinationMethod = outClassCombinations.getCombinationMethod(entry.getKey());
-            if (combinationMethod == null) {
-                combinationMethod = new CombinationMethod(entry.getValue());
-                outClassCombinations.addCombinationMethod(entry.getKey(), combinationMethod);
-            }
-
-            combinationMethod.addReachableClasses(entry.getValue().getReachableClasses());
+        if (superclass != null) {
+            getAllMethods(originalClass, superclass, allMethodsOut);
+            getMethodsWithAnnotation(originalClass, superclass, allMethodsOut);
         }
     }
 
-    private void updateClassCombinations(ClassCombinations classCombinations, CtClass ctClass) {
-        for (Map.Entry<String, CombinationMethod> entry : classCombinations.getCombinationMethodStorage().entrySet())
-            if (!entry.getValue().getReachableClasses().isEmpty())
-                entry.getValue().addReachableClass(ctClass);
+    static void getMethodsWithAnnotation(CtClass originalClass, CtClass ctClass,
+            List<ClassMethodCombination> allMethodsOut) throws ClassNotFoundException, CannotCompileException {
+
+        for (CtMethod ctMethod : ctClass.getDeclaredMethods()) {
+            for (Object annotation : ctMethod.getAnnotations()) {
+                if (annotation instanceof Combination) {
+                    String fixedName = ctMethod.getName().split("$")[0];
+                    System.out.println("Add method " + fixedName + " to class " + originalClass.getName());
+                    CtMethod newMethod = CtNewMethod.copy(ctMethod, fixedName + "$" + ctClass.getName(), originalClass, null);
+                    Combination combination = (Combination) annotation;
+                    allMethodsOut.add(new ClassMethodCombination(ctClass, newMethod, combination.value(), fixedName));
+                }
+            }        
+        }
     }
 
-    private String getFixedMethodName(String name) {
-        return name.split("$")[0];
+    static Map<Tuple, List<ClassMethodCombination>> groupMethods(List<ClassMethodCombination> CMCs) {
+        return CMCs.stream().collect(Collectors.groupingBy(cmc -> new Tuple(cmc.ctMethod().getName(), cmc.value())));
     }
 
-    @Override
-    public String toString() {
-        String programCombinationsStr = "==================== [ Program Combinations ] ====================\n";
-        for (Map.Entry<CtClass, ClassCombinations> entry : this.classCombinationsStorage.entrySet()){
-            programCombinationsStr += "[ " + entry.getKey().getName() + " ]\n";
-            programCombinationsStr += entry.getValue() + "\n\n";
+    static void combineMethods(CtClass ctClass)
+            throws ClassNotFoundException, CannotCompileException, NotFoundException {
+        // debug
+        // System.out.println("Class: " + ctClass.getName());
+
+        List<ClassMethodCombination> allMethods = new ArrayList<ClassMethodCombination>();
+        getAllMethods(ctClass, ctClass, allMethods);
+        Map<Tuple, List<ClassMethodCombination>> methodsGrouped = groupMethods(
+            allMethods.stream().distinct().collect(Collectors.toList())
+        );
+
+        for (Map.Entry<Tuple, List<ClassMethodCombination>> group : methodsGrouped.entrySet()) {
+            combine(ctClass, group.getValue(), group.getKey().value());
+        }
+        // System.out.println("\n==================================\n" + ctClass.getName());
+        // for (ClassMethodCombination classMethodCombination : allMethods.stream().distinct()
+        //         .collect(Collectors.toList()))
+        //     System.out.println(classMethodCombination);
+
+        // printMethods(ctClass, true);
+    }
+
+    // ! debug function, remove me
+    static void printMethods(CtClass ctClass, boolean annot) throws ClassNotFoundException {
+        System.out.println("Class: " + ctClass.getName() + " -> Methods:");
+
+        for (CtMethod ctMethod : ctClass.getDeclaredMethods()) {
+            System.out.println(ctMethod.getName());
+            Object[] annotations = ctMethod.getAnnotations();
+            if (annot && annotations.length != 0)
+                System.out.println("\tAnnotation: " + annotations[0]);
+        }
+    }
+
+    static CtMethod getCtMethod(CtClass ctClass, String name, String longName) {
+        try {
+            return ctClass.getMethod(name, longName);
+        } catch (NotFoundException e) {
+            return null;
+        }
+    }
+
+    static CtMethod getCtDeclaredMethod(CtClass ctClass, String name, CtClass[] parameters) {
+        try {
+            return ctClass.getDeclaredMethod(name, parameters);
+        } catch (NotFoundException e) {
+            return null;
+        }
+    }
+
+    static void combine(CtClass ctClass, List<ClassMethodCombination> groupOfMethods, String value)
+            throws CannotCompileException, NotFoundException, ClassNotFoundException {
+
+        if (value.equals("standard"))
+            // combineStandard(ctClass, ctMethod, value);
+            System.out.println("Combine Standard");
+
+        else if (operations.containsKey(value)) {
+            combineSimple(ctClass, groupOfMethods);
+            // System.out.println("Combine Simple");
+        } else {
+            System.err.println("Valid operations are 'or', 'and' and 'standard'");
+            System.exit(1);
+        }
+    }
+
+    static void combineSimple(CtClass ctClass, List<ClassMethodCombination> CMCs)
+            throws CannotCompileException, NotFoundException, ClassNotFoundException {
+
+                
+        ClassMethodCombination first = CMCs.get(0);
+        CtMethod oneMethod = first.ctMethod();
+        String operation = operations.get(first.value());
+        CtMethod ctMethod;
+        System.out.println("Combine simple for class " + ctClass.getName());
+
+        String body = "{ return ";
+        for (ClassMethodCombination cmc : CMCs) {
+            String name = cmc.ctMethod().getName();
+            System.out.println("\tAdd " + cmc.ctMethod().getName() + " to " + ctClass.getName());
+
+            ctClass.addMethod(cmc.ctMethod());
+
+            body += name + "($$)" + operation;
         }
 
-        return programCombinationsStr;
+        ctMethod = getCtDeclaredMethod(ctClass, first.originalName(), oneMethod.getParameterTypes());
+        // System.out.println("CT METHOD "+ ctMethod.getName());
+        if (ctMethod == null) {
+            // method does not exist yet
+            ctMethod = CtNewMethod.copy(oneMethod, first.originalName(), ctClass, null);
+            System.out.println("\tAdd method " + first.originalName() + " to class " + ctClass.getName());
+            body = body.substring(0, body.length() - operation.length()) + "; }";
+        } else {
+            ctMethod.setName(first.originalName() + "$original");
+            ctMethod = CtNewMethod.copy(ctMethod, first.originalName(), ctClass, null);
+            body += first.originalName() + "($$); }";
+        }
+        
+        System.out.println("\t" + body);
+
+
+        ctMethod.setBody(body);
+        ctClass.addMethod(ctMethod);
+    }
+
+    static void combineStandard(CtClass ctClass, CtMethod ctMethod, String value)
+            throws CannotCompileException, NotFoundException, ClassNotFoundException {
+        // todo implement
     }
 }
 
-class ClassCombinations {
-    Map<String, CombinationMethod> combinationMethodStorage = new HashMap<String, CombinationMethod>();
+public class UsingMethodCombinationCreateMethods {
+    public static void main(String[] args) throws NotFoundException, CannotCompileException, NoSuchMethodException,
+            IllegalAccessException, ClassNotFoundException, InvocationTargetException, Throwable {
+        if (args.length != 1) {
+            System.err.println("Usage: java -classpath javassist.jar:. ist.meic.pava.UsingMethodCombination <class>");
+            System.exit(1);
+        } else {
+            Translator translator = new CombineTranslator();
+            ClassPool pool = ClassPool.getDefault();
+            Loader classLoader = new Loader();
+            classLoader.addTranslator(pool, translator);
 
-    public Map<String, CombinationMethod> getCombinationMethodStorage() {
-        return combinationMethodStorage;
-    }
-
-    public CombinationMethod getCombinationMethod(String methodName) {
-        return this.combinationMethodStorage.get(methodName);
-    }
-
-    public void addCombinationMethod(String methoName, CombinationMethod combinationMethod) {
-        this.combinationMethodStorage.put(methoName, combinationMethod);
-    }
-
-    @Override
-    public String toString() {
-        String classCombinationsStr = "";
-        for (Map.Entry<String, CombinationMethod> entry : this.combinationMethodStorage.entrySet())
-            classCombinationsStr += " - " + entry.getValue() + "\n";
-        return classCombinationsStr;
-    }
-}
-
-class CombinationMethod {
-    String name;
-    String signature;
-    CombinationInfo combineInfo;
-    Set<CtClass> reachableClasses;
-
-    public CombinationMethod(String name, String signature, CombinationInfo combinationInfo) {
-        this.name = name;
-        this.signature = signature;
-        this.combineInfo = combinationInfo;
-        this.reachableClasses = new HashSet<CtClass>();
-    }
-
-    public CombinationMethod(final CombinationMethod combinationMethod) {
-        this.name = combinationMethod.getName();
-        this.signature = combinationMethod.getSignature();
-        this.combineInfo = new CombinationInfo(combinationMethod.getCombinationInfo());
-        this.reachableClasses = new HashSet<CtClass>();
-        this.reachableClasses.addAll(combinationMethod.getReachableClasses());
-    }
-
-    public String getName() {
-        return this.name;
-    }
-
-    public String getSignature() {
-        return this.signature;
-    }
-
-    public CombinationInfo getCombinationInfo() {
-        return this.combineInfo;
-    }
-
-    public Set<CtClass> getReachableClasses() {
-        return this.reachableClasses;
-    }
-
-    public void addReachableClasses(Set<CtClass> ctClasses) {
-        this.reachableClasses.addAll(ctClasses);
-    }
-
-    public void addReachableClass(CtClass ctClass) {
-        this.reachableClasses.add(ctClass);
-    }
-
-    @Override
-    public String toString() {
-        String combineReachabilityStr = this.reachableClasses.stream()
-                .map(c -> c.getName())
-                .reduce("", (str, c) -> (str + ", " + c));
-
-        combineReachabilityStr = combineReachabilityStr.replaceFirst(", ", "");
-        return "CombineMethod{name=\'" + this.name +
-                "\', signature=\'" + this.signature +
-                "\', combineInfo=" + this.combineInfo +
-                ", combineRechability=[" + combineReachabilityStr +
-                "]}";
-    }
-}
-
-class CombinationInfo {
-    String value;
-
-    public CombinationInfo(String value) {
-        this.value = value;
-    }
-
-    public CombinationInfo(final CombinationInfo combinationInfo) {
-        this.value = combinationInfo.getValue();
-    }
-
-    public String getValue() {
-        return value;
-    }
-
-    @Override
-    public String toString() {
-        return "CombineInfo{value=\'" + this.value + "\'}";
+            String[] restArgs = new String[args.length - 1];
+            System.arraycopy(args, 1, restArgs, 0, restArgs.length);
+            classLoader.run(args[0], restArgs);
+        }
     }
 }
