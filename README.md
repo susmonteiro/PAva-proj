@@ -25,8 +25,6 @@ as similar as possible to the analogous mechanisms that are pre-defined in CLOS
 - [Susana Monteiro](https://github.com/susmonteiro)
 
 ## Questions: 
-- catch "NotFoundException" is the best option?
-- is there another option instead of copying the annotation explicitly?
 
 ## ToDo:
 
