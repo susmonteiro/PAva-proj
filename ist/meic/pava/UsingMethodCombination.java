@@ -296,7 +296,7 @@ class CombineTranslator implements Translator {
     }    
 }
 
-public class UsingMethodCombinationCreateMethods {
+public class UsingMethodCombination {
     public static void main(String[] args) throws NotFoundException, CannotCompileException, NoSuchMethodException,
             IllegalAccessException, ClassNotFoundException, InvocationTargetException, Throwable {
         if (args.length != 1) {

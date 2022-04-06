@@ -3,3 +3,4 @@
 
 # VS Workspace file
 *.code-workspace
+.vscode/

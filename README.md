@@ -19,6 +19,19 @@ as similar as possible to the analogous mechanisms that are pre-defined in CLOS
 
 ```
 
+You can also use the provided script:
+
+```
+    $ sh scripts/run.sh       
+    (to run the default implementation with the HardWorkers test)
+
+    $sh scripts/run.sh <MainClass> 
+    (to run the <MainClass> implementation with the Hardworkers test)
+
+    #sh scripts/run.sh <MainClass> <TestClass>
+    (to run the <MainClass> implementation with the <TestClass> test)
+```
+
 ## Authors:
 
 - [André Nascimento](https://github.com/ArcKenimuZ)
