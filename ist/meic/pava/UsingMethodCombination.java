@@ -67,7 +67,7 @@ class CombineTranslator implements Translator {
         else if (operations.containsKey(value))
             combineSimple(ctClass, keyCombinationMethods, operations.get(value));
         else
-            throw new RuntimeException("Error: Invalid combination value [" + value + "]! Possible values: ['or', 'and', 'sum' and 'standard']");
+            throw new RuntimeException("Error: Invalid combination value [" + value + "]! Possible values: ['or', 'and', 'sum', 'prod' and 'standard']");
     }
 
     void combineSimple(CtClass ctClass, List<MethodCopy> methods, String operation) throws CannotCompileException, NotFoundException, ClassNotFoundException {
@@ -181,7 +181,7 @@ class CombineTranslator implements Translator {
                             qualifier = parts[0];
                             keyName = parts[1];
                         }
-                        // ? :before and :after receive the same arguments as the primary function?
+                        
                         key = keyName + ctMethod.getSignature() + combination.value();
                     }
                     key = keyName + ctMethod.getSignature() + ctMethod.getReturnType() + combination.value();
