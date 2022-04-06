@@ -16,7 +16,7 @@ class Person {
 
     @Combination("or")
     public boolean isHardWorker() {
-        // System.out.println("Person.isHardWorker.");
+        System.out.println("Person.isHardWorker.");
         return false;
     }
 }
@@ -41,7 +41,7 @@ class Student extends Person {
 
     @Combination("or")
     public boolean isHardWorker() {
-        // System.out.println("Student.isHardWorker.");
+        System.out.println("Student.isHardWorker.");
         return isGoodSchool(school);
     }
 
@@ -53,7 +53,7 @@ class Student extends Person {
 interface NotHardWorker extends Worker {
     @Combination("or")
     default boolean isHardWorker() {
-        // System.out.println("NotHardWorker.isHardWorker.");
+        System.out.println("NotHardWorker.isHardWorker.");
         return false;
     }
 }
@@ -61,7 +61,7 @@ interface NotHardWorker extends Worker {
 interface Worker {
     @Combination("or")
     default boolean isHardWorker() {
-        // System.out.println("Worker.isHardWorker.");
+        System.out.println("Worker.isHardWorker.");
         return false;
     }
 }
@@ -69,7 +69,7 @@ interface Worker {
 interface HardWorker extends Worker {
     @Combination("or")
     default boolean isHardWorker() {
-        // System.out.println("HardWorker.isHardWorker.");
+        System.out.println("HardWorker.isHardWorker.");
         return false;
     }
 }
@@ -144,16 +144,31 @@ public class HardWorkers {
 
     // }
 
+
     // * Standard Method Combination main function
     public static void main(String[] args) {
-        Person[] people = new Person[] { new Person("Mary"),
+
+        System.out.println("\n\n\n === SIMPLE ===\n");
+        Person[] people = new Person[] {
+            new Person("Mary"),
+            new Student("John", "FEUP"),
+            new Student("Lucy", "XYZ"),
+            new ISTStudent("Fritz"),
+            new MastersISTStudent("qwert")
+            };
+            for (Person person : people) {
+            System.out.println(person.name + " is a hard worker? " +
+            person.isHardWorker());
+            }
+        System.out.println("\n\n\n === STANDARD ===\n");
+        Person[] peopleStandard = new Person[] { new Person("Mary"),
                 new Student("John", "FEUP"),
                 new Student("Lucy", "XYZ"),
                 new ISTStudent("Fritz"),
                 new ForeignStudent("Abel", "FCT"),
                 new ForeignISTStudent("Bernard"),
                 new ForeignHardworkingPerson("Peter") };
-        for (Person person : people) {
+        for (Person person : peopleStandard) {
             person.print_name();
             System.out.println(" is a hard worker? " + person.isHardWorker());
         }

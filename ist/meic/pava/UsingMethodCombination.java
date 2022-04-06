@@ -20,7 +20,7 @@ import javassist.Translator;
 // associate listeners to Javassist's class loader
 // automatically process classes - no need to specify the classes we want to apply combination to
 class CombineTranslator implements Translator {
-    private static final Map<String, String> operations = Map.of("or", " || ", "and", " && ", "plus", "+");
+    private static final Map<String, String> operations = Map.of("or", " || ", "and", " && ", "plus", " + ");
     private static final List<String> symbols = Arrays.asList("before", "after");
 
     public static class MethodCopy {
@@ -144,6 +144,7 @@ class CombineTranslator implements Translator {
 
         if (ctMethod == null) {
             ctMethod = CtNewMethod.copy(template, name, ctClass, null);
+            System.out.println("No previously declared method :(");
         } else {
             // if the method exists, create a $original one and add it to the list of methods to be called
             ctMethod.setName(name + "$original");
