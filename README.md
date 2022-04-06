@@ -25,11 +25,11 @@ You can also use the provided script:
     $ sh scripts/run.sh       
     (to run the default implementation with the HardWorkers test)
 
-    $sh scripts/run.sh <MainClass> 
-    (to run the <MainClass> implementation with the Hardworkers test)
+    $sh scripts/run.sh <TestClass> 
+    (to run the default implementation with the <TestClass> test)
 
-    #sh scripts/run.sh <MainClass> <TestClass>
-    (to run the <MainClass> implementation with the <TestClass> test)
+    $sh scripts/run.sh <TestClass> <ImplementationClass>
+    (to run the <ImplementationClass> implementation with the <TestClass> test)
 ```
 
 ## Authors:
