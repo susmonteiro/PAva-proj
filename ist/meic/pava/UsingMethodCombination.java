@@ -35,7 +35,7 @@ public class UsingMethodCombination {
 }
 
 class CombineTranslator implements Translator {
-    private static final Map<String, String> operations = Map.of("or", " || ", "and", " && ", "sum", " + ");
+    private static final Map<String, String> operations = Map.of("or", "||", "and", "&&", "sum", "+", "prod", "*");
     private static final List<String> qualifiers = Arrays.asList("before", "after");
 
     public void start(ClassPool pool) throws NotFoundException, CannotCompileException {}
@@ -93,6 +93,7 @@ class CombineTranslator implements Translator {
         }
 
         String body = "{ return " + methodCalls.stream().collect(Collectors.joining(" " + operation + " ")) + "; }";
+        System.out.println(body);
         ctMethod.setBody(body);
         ctClass.addMethod(ctMethod);
     }
@@ -185,7 +186,8 @@ class CombineTranslator implements Translator {
                         key = keyName + ctMethod.getSignature() + combination.value();
                     }
                     key = keyName + ctMethod.getSignature() + ctMethod.getReturnType() + combination.value();
-                    CtMethod newMethod = CtNewMethod.copy(ctMethod, fixedName + "$" + ctClass.getName(), originalClass, null);
+                    String finalMethodName = fixedName + "$$" + ctClass.getName().replace(".", "$");
+                    CtMethod newMethod = CtNewMethod.copy(ctMethod, finalMethodName, originalClass, null);
                     addToGroupedMethods(groupedMethods, new MethodCopy(ctClass, newMethod, combination.value(), keyName, qualifier), key);
                 }
             }
@@ -203,16 +205,6 @@ class CombineTranslator implements Translator {
     CtMethod getCtDeclaredMethod(CtClass ctClass, String name, CtClass[] parameters) {
         try {
             return ctClass.getDeclaredMethod(name, parameters);
-        } catch (NotFoundException e) {
-            return null;
-        }
-    }
-
-    // todo not needed? Then delete
-
-    CtMethod getCtMethod(CtClass ctClass, String name, String longName) {
-        try {
-            return ctClass.getMethod(name, longName);
         } catch (NotFoundException e) {
             return null;
         }

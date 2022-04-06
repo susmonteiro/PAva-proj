@@ -2,20 +2,47 @@
 <h3 align="center">Instituto Superior Técnico, Universidade de Lisboa</h3>
 <h4 align="center">2021/2022</h4>
 
+<br>
+
+## Authors:
+- [André Nascimento](https://github.com/ArcKenimuZ)
+- [Susana Monteiro](https://github.com/susmonteiro)
+
+<br>
+
 ## About
 
-**Project 1**: Implementation, in Java, of mechanisms for method combination
-as similar as possible to the analogous mechanisms that are pre-defined in CLOS
-<br/>
+Implementation, in Java, of mechanisms to allow for method Combination,
+as similar as possible to the analogous mechanisms that are pre-defined in languages such as CLOS.
+
+<br>
+
+## Implementations
+There are two implementations of the Combination mechanism available:
+- Default Implementation (@see *UsingMethodCombination*) that copies all the methods from superclasses/interfaces to the target class
+- Recursive Implementation (@see *UsingMethodCombinationRecursive*) that navigates through the class hierarchy and calls the appropriate methods
+    - This implementation is slightly broken, as it is sometimes required to add methods to a class after being loaded to the *JVM*
+
+<br>
+
+## Extensions
+The default implementation of the project contains the following extentions to the base assignment:
+- Sum Combination (sums all the return values)
+- Product Combination (multiplies all the return values)
+- Support for multiple complex class hierarchies (e.g. classes that implement multiple interfaces that extend a common interface)
+    - Note that the implementation ensures a method on any class/interface is only called once (this is very important for the *Sum* and *Product Combination*)
+
+
+<br>
 
 ## Compile and Run Project 1
 
 ```
-    $ javac -d target/ HardWorkers.java
+    $ javac -d target/ <TestFile>
 
-    $ javac -d target/ -classpath lib/javassist.jar:. ist/meic/pava/UsingMethodCombination.java
+    $ javac -d target/ -classpath lib/javassist.jar:. <ImplementationFile>
 
-    $ java -classpath target/:lib/javassist.jar:. ist.meic.pava.UsingMethodCombination HardWorkers
+    $ java -classpath target/:lib/javassist.jar:. <ImplementationClass> <TestClass>
 
 ```
 
@@ -32,14 +59,8 @@ You can also use the provided script:
     (to run the <ImplementationClass> implementation with the <TestClass> test)
 ```
 
-## Authors:
 
-- [André Nascimento](https://github.com/ArcKenimuZ)
-- [Susana Monteiro](https://github.com/susmonteiro)
 
-## Questions: 
-
-## ToDo:
 
 ## Draft:
 

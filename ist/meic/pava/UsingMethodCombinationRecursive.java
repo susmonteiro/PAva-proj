@@ -1,6 +1,5 @@
 package ist.meic.pava;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -20,7 +19,7 @@ import javassist.Loader;
 import javassist.NotFoundException;
 import javassist.Translator;
 
-public class UsingMethodCombinationRecursion {
+public class UsingMethodCombinationRecursive {
 
     public static void main(String[] args) throws Throwable {
 
@@ -101,7 +100,7 @@ class ProgramCombinations {
         for (CtMethod ctMethod : ctClass.getDeclaredMethods())
             for (Object annotation : ctMethod.getAnnotations())
                 if (annotation instanceof Combination)
-                    processCombinationMethod(classCombinations, ctClass, ctMethod, (Combination) annotation);
+                    processCombinationMethod(classCombinations, ctClass, ctMethod, (Combination)annotation);
     }
 
     private void processCombinationMethod(ClassCombinations classCombinations, CtClass ctClass, CtMethod ctMethod, Combination annotation) {
@@ -261,8 +260,8 @@ class CombinationMethod {
         String combineReachabilityStr = this.reachableClasses.stream().map(c -> c.getName()).reduce("", (str, c) -> (str + ", " + c));
 
         combineReachabilityStr = combineReachabilityStr.replaceFirst(", ", "");
-        return "CombineMethod{name=\'" + this.name + "\', signature=\'" + this.signature + "\', combineInfo=" + this.combineInfo + ", hasMethod=" + this.hasMethod + ", combineRechability=["
-                + combineReachabilityStr + "]}";
+        return "CombineMethod{name=\'" + this.name + "\', signature=\'" + this.signature + "\', combineInfo=" + this.combineInfo + ", hasMethod="
+                + this.hasMethod + ", combineRechability=[" + combineReachabilityStr + "]}";
     }
 }
 
@@ -302,7 +301,8 @@ class CombinationMethodGenerator {
             generateCombinationMethod(ctClass, combinationMethod);
     }
 
-    private void generateCombinationMethod(CtClass ctClass, CombinationMethod combinationMethod) throws NotFoundException, ClassNotFoundException, CannotCompileException {
+    private void generateCombinationMethod(CtClass ctClass, CombinationMethod combinationMethod)
+            throws NotFoundException, ClassNotFoundException, CannotCompileException {
 
         CombinationMethodBuilder builder = null;
         switch (combinationMethod.getCombinationInfo().getValue()) {
@@ -485,7 +485,8 @@ abstract class CombinationMethodBuilder {
         this.reachableClasses.removeAll(combinationMethodReachableClasses);
         boolean newBuild = builder.build();
 
-        // System.out.println("\t[Finally] <" + newBuild + "> : " + ctClass.getName() + " --> " + this.reachableClasses.stream().map(c -> c.getName()).collect(Collectors.joining(", ")));
+        // System.out.println("\t[Finally] <" + newBuild + "> : " + ctClass.getName() + " --> " + this.reachableClasses.stream().map(c ->
+        // c.getName()).collect(Collectors.joining(", ")));
         return newBuild ? newMethodName : null;
     }
 
@@ -506,7 +507,8 @@ abstract class SimpleCombinationMethodBuilder extends CombinationMethodBuilder {
     protected String generatePrimaryMethodBody() throws NotFoundException, ClassNotFoundException, CannotCompileException {
 
         List<String> combinationCalls = getCombinationCalls(false);
-        String combinationCallStr = combinationCalls.stream().map(combinationCall -> combinationCall + "($$)").collect(Collectors.joining(" " + getOperator() + " "));
+        String combinationCallStr = combinationCalls.stream().map(combinationCall -> combinationCall + "($$)")
+                .collect(Collectors.joining(" " + getOperator() + " "));
         String test = !combinationCallStr.equals("") ? "{ return " + combinationCallStr + "; }" : "";
         return test;
     }
