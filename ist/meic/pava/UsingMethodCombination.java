@@ -102,6 +102,7 @@ class CombineTranslator implements Translator {
         CtMethod template = methods.get(0).ctMethod();
         String body = "{ ";
 
+        CtMethod primaryCtMethod = null;
         List<MethodCopy> before = new ArrayList<MethodCopy>();
         List<MethodCopy> after = new ArrayList<MethodCopy>();
         MethodCopy primary = null;
@@ -126,13 +127,17 @@ class CombineTranslator implements Translator {
 
         if (primary != null) {
             if (primary.ctClass().equals(ctClass)) {
-                CtMethod original = getCtDeclaredMethod(ctClass, name, template.getParameterTypes());
-                original.setName(name + "$original");
-                body += name + "$original($$);";
+                primaryCtMethod = getCtDeclaredMethod(ctClass, name, template.getParameterTypes());
+                primaryCtMethod.setName(name + "$original");
             } else {
-                ctClass.addMethod(primary.ctMethod());
-                body += primary.ctMethod.getName() + "($$); ";
+                primaryCtMethod = primary.ctMethod();
+                ctClass.addMethod(primaryCtMethod);
             }
+            
+            if (primaryCtMethod.getReturnType() != CtClass.voidType)
+                body += primaryCtMethod.getReturnType().getSimpleName() + " $r = ";
+
+            body += primaryCtMethod.getName() + "($$); ";            
         }
 
         for (MethodCopy method : after) {
@@ -143,6 +148,9 @@ class CombineTranslator implements Translator {
                 body += method.ctMethod().getName() + "($$); ";
             }
         }
+
+        if (primary != null && primaryCtMethod.getReturnType() != CtClass.voidType)
+            body += "return $r;";
 
         CtMethod ctMethod = CtNewMethod.copy(template, name, ctClass, null);
         ctMethod.setBody(body + "}");
