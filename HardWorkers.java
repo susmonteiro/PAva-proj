@@ -1,5 +1,3 @@
-
-
 import ist.meic.pava.Combination;
 
 class Person {
@@ -16,7 +14,6 @@ class Person {
 
     @Combination("or")
     public boolean isHardWorker() {
-        System.out.println("Person.isHardWorker.");
         return false;
     }
 }
@@ -28,20 +25,14 @@ class Student extends Person {
         super(name);
         this.school = school;
     }
-    
+
     @Combination("standard")
     public void before_print_name() {
         System.out.print("Student ");
     }
 
-    @Combination("standard")
-    public void after_print_name() {
-        System.out.print(" and a student");
-    }
-
     @Combination("or")
     public boolean isHardWorker() {
-        System.out.println("Student.isHardWorker.");
         return isGoodSchool(school);
     }
 
@@ -50,31 +41,14 @@ class Student extends Person {
     }
 }
 
-interface NotHardWorker extends Worker {
+interface HardWorker {
     @Combination("or")
     default boolean isHardWorker() {
-        System.out.println("NotHardWorker.isHardWorker.");
-        return false;
+        return true;
     }
 }
 
-interface Worker {
-    @Combination("or")
-    default boolean isHardWorker() {
-        System.out.println("Worker.isHardWorker.");
-        return false;
-    }
-}
-
-interface HardWorker extends Worker {
-    @Combination("or")
-    default boolean isHardWorker() {
-        System.out.println("HardWorker.isHardWorker.");
-        return false;
-    }
-}
-
-class ISTStudent extends Student implements HardWorker, NotHardWorker {
+class ISTStudent extends Student implements HardWorker {
     public ISTStudent(String name) {
         super(name, "IST");
     }
@@ -82,12 +56,6 @@ class ISTStudent extends Student implements HardWorker, NotHardWorker {
     @Combination("standard")
     public void before_print_name() {
         System.out.print("IST-");
-    }
-}
-
-class MastersISTStudent extends ISTStudent {
-    public MastersISTStudent(String name) {
-        super(name);
     }
 }
 
@@ -113,11 +81,6 @@ class ForeignISTStudent extends ISTStudent implements Foreign {
     public ForeignISTStudent(String name) {
         super(name);
     }
-
-    @Combination("standard")
-    public void after_print_name() {
-        System.out.print(" (ist student yooo)");
-    }
 }
 
 class ForeignHardworkingPerson extends Person implements Foreign, HardWorker {
@@ -128,50 +91,23 @@ class ForeignHardworkingPerson extends Person implements Foreign, HardWorker {
 
 public class HardWorkers {
 
-    // * Simple Method Combination main function
-    // public static void main(String[] args) {
-    // Person[] people = new Person[] {
-    // new Person("Mary"),
-    // new Student("John", "FEUP"),
-    // new Student("Lucy", "XYZ"),
-    // new ISTStudent("Fritz"),
-    // new MastersISTStudent("qwert")
-    // };
-    // for (Person person : people) {
-    // System.out.println(person.name + " is a hard worker? " +
-    // person.isHardWorker());
-    // }
+    public static void main(String args[]) {
 
-    // }
-
-
-    // * Standard Method Combination main function
-    public static void main(String[] args) {
-
-        System.out.println("\n\n\n === SIMPLE ===\n");
-        Person[] people = new Person[] {
+        // @formatter:off
+        Person[] people = new Person[] { 
             new Person("Mary"),
             new Student("John", "FEUP"),
             new Student("Lucy", "XYZ"),
             new ISTStudent("Fritz"),
-            new MastersISTStudent("qwert")
-            };
-            for (Person person : people) {
-            System.out.println(person.name + " is a hard worker? " +
-            person.isHardWorker());
-            }
-        System.out.println("\n\n\n === STANDARD ===\n");
-        Person[] peopleStandard = new Person[] { new Person("Mary"),
-                new Student("John", "FEUP"),
-                new Student("Lucy", "XYZ"),
-                new ISTStudent("Fritz"),
-                new ForeignStudent("Abel", "FCT"),
-                new ForeignISTStudent("Bernard"),
-                new ForeignHardworkingPerson("Peter") };
-        for (Person person : peopleStandard) {
+            new ForeignStudent("Abel", "FCT"),
+            new ForeignISTStudent("Bernard"),
+            new ForeignHardworkingPerson("Peter") 
+        };
+        // @formatter:on
+
+        for (Person person : people) {
             person.print_name();
             System.out.println(" is a hard worker? " + person.isHardWorker());
         }
-
     }
 }
