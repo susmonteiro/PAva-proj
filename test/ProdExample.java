@@ -76,8 +76,6 @@ class Factorial4 extends Factorial3 implements Number4 {
     }
 }
 
-
-
 public class ProdExample {
 
     public static void main(String[] args) {
