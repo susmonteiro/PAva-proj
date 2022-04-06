@@ -1,6 +1,6 @@
 package ist.meic.pava;
 
-import javassist.*;
+import lib.javassist.*;
 import java.lang.reflect.*;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -12,7 +12,7 @@ import java.util.stream.Collectors;
 // associate listeners to Javassist's class loader
 // automatically process classes - no need to specify the classes we want to apply combination to
 class CombineTranslator implements Translator {
-    private static final Map<String, String> operations = Map.of("or", " || ", "and", " && ");
+    private static final Map<String, String> operations = Map.of("or", " || ", "and", " && ", "plus", "+");
     private static final List<String> symbols = Arrays.asList("before", "after");
 
     public static class MethodCopy {
@@ -106,6 +106,8 @@ class CombineTranslator implements Translator {
             // group.stream().forEach(el -> System.out.println(el));
             combine(ctClass, group, group.get(0).value());
         }
+
+        printMethods(ctClass, false);
     }
 
     static void combine(CtClass ctClass, List<MethodCopy> groupOfMethods, String value)
@@ -117,7 +119,7 @@ class CombineTranslator implements Translator {
         else if (operations.containsKey(value)) {
             combineSimple(ctClass, groupOfMethods, operations.get(value));
         } else {
-            System.err.println("Valid operations are 'or', 'and' and 'standard'");
+            System.err.println("Valid operations are 'or', 'and', 'plus' and 'standard'");
             System.exit(1);
         }
     }
@@ -149,6 +151,7 @@ class CombineTranslator implements Translator {
         }
 
         body = body.substring(0, body.length() - op.length()) + "; }";
+        System.out.println("Class " + ctClass.getName() + "\tBody: " + body);
         ctMethod.setBody(body);
         ctClass.addMethod(ctMethod);
     }
@@ -170,10 +173,7 @@ class CombineTranslator implements Translator {
             else if (method.symbol().equals("") && primary == null) primary = method;
         }
 
-        // there is no primary method
-        // ? does it make sense to call anything if the primary method does not exist?
-        if (primary == null) return;
-
+        
         for (MethodCopy method : before) {
             if (method.ctClass().getName().equals(ctClass.getName())) {
                 body += "before_" + name + "($$); ";
@@ -183,16 +183,19 @@ class CombineTranslator implements Translator {
             }
         } 
         
-        if (primary.ctClass().equals(ctClass)) {
-            // if the method exists in this class, we need to create a copy
-            CtMethod original = getCtDeclaredMethod(ctClass, name, template.getParameterTypes());
-            original.setName(name + "$original");
-            body += name + "$original($$); ";
-        } else {
-            // otherwise, copy the method
-            // ? do we need to take care of returning types? Or we assume the function is always void?
-            ctClass.addMethod(primary.ctMethod());
-            body += primary.ctMethod.getName() + "($$); ";
+        if (primary != null) {
+            // there is no primary method
+            if (primary.ctClass().equals(ctClass)) {
+                // if the method exists in this class, we need to create a copy
+                CtMethod original = getCtDeclaredMethod(ctClass, name, template.getParameterTypes());
+                original.setName(name + "$original");
+                body += name + "$original($$);";
+            } else {
+                // otherwise, copy the method
+                // ? do we need to take care of returning types? Or we assume the function is always void? - you can make it an extension (use $r)
+                ctClass.addMethod(primary.ctMethod());
+                body += primary.ctMethod.getName() + "($$); ";
+            }
         }
 
         for (MethodCopy method : after) {
@@ -237,14 +240,17 @@ class CombineTranslator implements Translator {
                     String fixedName = ctMethod.getName().split("\\$")[0];
                     String keyName = fixedName;
                     String symbol = "";
+                    String key = "";
                     if (combination.value().equals("standard")) {
                         String[] parts = fixedName.split("_", 2);
                         if (symbols.contains(parts[0])) {
                             symbol = parts[0];
                             keyName = parts[1];
                         }
+                        // ? :before and :after receive the same arguments as the primary function?
+                        key = keyName + ctMethod.getSignature() + combination.value();
                     }
-                    String key = keyName + ctMethod.getSignature() + ctMethod.getReturnType() + combination.value();
+                    key = keyName + ctMethod.getSignature() + ctMethod.getReturnType() + combination.value();
                     CtMethod newMethod = CtNewMethod.copy(ctMethod, fixedName + "$" + ctClass.getName(), originalClass, null);
                     addToGroupedMethods(groupedMethods, new MethodCopy(ctClass, newMethod, combination.value(), keyName, symbol), key);
                 }
