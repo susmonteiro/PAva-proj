@@ -93,7 +93,6 @@ class CombineTranslator implements Translator {
         }
 
         String body = "{ return " + methodCalls.stream().collect(Collectors.joining(" " + operation + " ")) + "; }";
-        System.out.println(body);
         ctMethod.setBody(body);
         ctClass.addMethod(ctMethod);
     }

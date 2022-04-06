@@ -27,10 +27,11 @@ There are two implementations of the Combination mechanism available:
 
 ## Extensions
 The default implementation of the project contains the following extentions to the base assignment:
-- Sum Combination (sums all the return values)
-- Product Combination (multiplies all the return values)
+- Sum Combination (sums all the returned values)
+- Product Combination (multiplies all the returned values)
 - Support for multiple complex class hierarchies (e.g. classes that implement multiple interfaces that extend a common interface)
     - Note that the implementation ensures a method on any class/interface is only called once (this is very important for the *Sum* and *Product Combination*)
+- Support for combining methods inside different packages (e.g. test files are in the test package)
 
 
 <br>
