@@ -1,6 +1,5 @@
 package ist.meic.pava;
 
-import lib.javassist.*;
 import java.lang.reflect.*;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -8,6 +7,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import javassist.CannotCompileException;
+import javassist.ClassPool;
+import javassist.CtClass;
+import javassist.CtMethod;
+import javassist.CtNewMethod;
+import javassist.Loader;
+import javassist.NotFoundException;
+import javassist.Translator;
 
 // associate listeners to Javassist's class loader
 // automatically process classes - no need to specify the classes we want to apply combination to
