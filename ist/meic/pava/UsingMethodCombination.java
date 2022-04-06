@@ -35,7 +35,7 @@ public class UsingMethodCombination {
 }
 
 class CombineTranslator implements Translator {
-    private static final Map<String, String> operations = Map.of("or", " || ", "and", " && ", "plus", " + ");
+    private static final Map<String, String> operations = Map.of("or", " || ", "and", " && ", "sum", " + ");
     private static final List<String> qualifiers = Arrays.asList("before", "after");
 
     public void start(ClassPool pool) throws NotFoundException, CannotCompileException {}
@@ -67,7 +67,7 @@ class CombineTranslator implements Translator {
         else if (operations.containsKey(value))
             combineSimple(ctClass, keyCombinationMethods, operations.get(value));
         else
-            throw new RuntimeException("Error: Invalid combination value! Possible values: ['or', 'and', 'plus' and 'standard']");
+            throw new RuntimeException("Error: Invalid combination value [" + value + "]! Possible values: ['or', 'and', 'sum' and 'standard']");
     }
 
     void combineSimple(CtClass ctClass, List<MethodCopy> methods, String operation) throws CannotCompileException, NotFoundException, ClassNotFoundException {
