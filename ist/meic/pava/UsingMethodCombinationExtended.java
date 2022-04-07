@@ -110,20 +110,21 @@ class CombineTranslator implements Translator {
                 primaryMethodCopy = method;
         }
 
+        // if there is no primary method, don't create a generic method
+        if (primaryMethodCopy == null) return;
+
         List<String> beforeMethodCalls = getPrefixedMethodCalls(ctClass, name, beforeMethods, "before");
         List<String> afterMethodCalls = getPrefixedMethodCalls(ctClass, name, afterMethods, "after");
 
         CtMethod primaryMethod = null;
         CtClass combinationReturnType = CtClass.voidType;
-        if (primaryMethodCopy != null) {
-            combinationReturnType = primaryMethodCopy.ctMethod().getReturnType();
-            if (primaryMethodCopy.ctClass() == ctClass) {
-                primaryMethod = getCtDeclaredMethod(ctClass, name, primaryMethodCopy.ctMethod().getParameterTypes());
-                primaryMethod.setName(name + "$original");
-            } else {
-                primaryMethod = primaryMethodCopy.ctMethod();
-                ctClass.addMethod(primaryMethod);
-            }
+        combinationReturnType = primaryMethodCopy.ctMethod().getReturnType();
+        if (primaryMethodCopy.ctClass() == ctClass) {
+            primaryMethod = getCtDeclaredMethod(ctClass, name, primaryMethodCopy.ctMethod().getParameterTypes());
+            primaryMethod.setName(name + "$original");
+        } else {
+            primaryMethod = primaryMethodCopy.ctMethod();
+            ctClass.addMethod(primaryMethod);
         }
 
         String combinationReturn = " " + (combinationReturnType != CtClass.voidType ? combinationReturnType.getName() + " $r = " : ""); // @extension_5
