@@ -51,7 +51,7 @@ class CombineTranslator implements Translator {
 
     void combineMethods(CtClass ctClass) throws ClassNotFoundException, CannotCompileException, NotFoundException {
         Map<String, List<MethodCopy>> combinationMethods = new HashMap<String, List<MethodCopy>>();
-        retreiveCombinationMethods(ctClass, ctClass, combinationMethods);
+        retrieveCombinationMethods(ctClass, ctClass, combinationMethods);
 
         for (List<MethodCopy> keyCombinationMethods : combinationMethods.values()) {
             keyCombinationMethods = keyCombinationMethods.stream().distinct().collect(Collectors.toList());
@@ -158,16 +158,16 @@ class CombineTranslator implements Translator {
     }
 
     // Retrieve all the reachable methods from a given class
-    void retreiveCombinationMethods(CtClass originalClass, CtClass ctClass, Map<String, List<MethodCopy>> groupedMethods)
+    void retrieveCombinationMethods(CtClass originalClass, CtClass ctClass, Map<String, List<MethodCopy>> groupedMethods)
             throws NotFoundException, ClassNotFoundException, CannotCompileException {
 
         getCombinationMethods(originalClass, ctClass, groupedMethods);
         for (CtClass ctInterface : ctClass.getInterfaces())
-            retreiveCombinationMethods(originalClass, ctInterface, groupedMethods);
+            retrieveCombinationMethods(originalClass, ctInterface, groupedMethods);
 
         CtClass superclass = ctClass.getSuperclass();
         if (!superclass.getName().equals("java.lang.Object")) {
-            retreiveCombinationMethods(originalClass, superclass, groupedMethods);
+            retrieveCombinationMethods(originalClass, superclass, groupedMethods);
         }
     }
 

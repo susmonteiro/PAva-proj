@@ -18,5 +18,5 @@ elif [ "$#" -eq 1 ]; then
 else
     javac -d target/ test/$1.java
     javac -d target/ -classpath lib/javassist.jar:. ist/meic/pava/$2.java
-    java -classpath target/:lib/javassist.jar:. ist.meic.pava.$2 $1
+    java -classpath target/:lib/javassist.jar:. ist.meic.pava.$2 test.$1
 fi
