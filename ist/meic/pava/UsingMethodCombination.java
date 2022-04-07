@@ -5,7 +5,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 import javassist.CannotCompileException;
@@ -115,9 +114,7 @@ class CombineTranslator implements Translator {
         List<String> afterMethodCalls = getPrefixedMethodCalls(ctClass, name, afterMethods, "after");
 
         CtMethod primaryMethod = null;
-        CtClass combinationReturnType = CtClass.voidType;
         if (primaryMethodCopy != null) {
-            combinationReturnType = primaryMethodCopy.ctMethod().getReturnType();
             if (primaryMethodCopy.ctClass() == ctClass) {
                 primaryMethod = getCtDeclaredMethod(ctClass, name, primaryMethodCopy.ctMethod().getParameterTypes());
                 primaryMethod.setName(name + "$original");
@@ -126,16 +123,15 @@ class CombineTranslator implements Translator {
                 ctClass.addMethod(primaryMethod);
             }
         }
-        
-        String combinationReturn = " " + (combinationReturnType != CtClass.voidType ? combinationReturnType.getName() + " $r = " : "");
+
         String body = "{ ";
         body += beforeMethodCalls.stream().collect(Collectors.joining(" "));
-        body += combinationReturn + (primaryMethod != null ? (primaryMethod.getName() + "($$); ") : " ");
+        body += (primaryMethod != null ? (primaryMethod.getName() + "($$); ") : " ");
         body += afterMethodCalls.stream().collect(Collectors.joining(" "));
-        body += (combinationReturnType != CtClass.voidType ? " return $r;" : "") + " }";
+        body += " }";
 
         CtMethod template = methods.get(0).ctMethod();
-        CtMethod combinationMethod = CtNewMethod.make(combinationReturnType, name, template.getParameterTypes(), template.getExceptionTypes(), body, ctClass);
+        CtMethod combinationMethod = CtNewMethod.make(CtClass.voidType, name, template.getParameterTypes(), template.getExceptionTypes(), body, ctClass);
         ctClass.addMethod(combinationMethod);
     }
 
@@ -188,7 +184,7 @@ class CombineTranslator implements Translator {
                         }
                     }
 
-                    key = keyName + ctMethod.getSignature() + combination.value();
+                    key = keyName + ctMethod.getGenericSignature() + combination.value();
                     String finalMethodName = fixedName + "$" + ctClass.getSimpleName();
                     CtMethod newMethod = CtNewMethod.copy(ctMethod, finalMethodName, originalClass, null);
                     addToGroupedMethods(groupedMethods, new MethodCopy(ctClass, newMethod, combination.value(), keyName, qualifier), key);
