@@ -99,7 +99,6 @@ class CombineTranslator implements Translator {
 
     void combineStandard(CtClass ctClass, List<MethodCopy> methods) throws CannotCompileException, NotFoundException, ClassNotFoundException {
         String name = methods.get(0).name();
-        CtMethod template = methods.get(0).ctMethod();
         String body = "{ ";
 
         CtMethod primaryCtMethod = null;
@@ -125,20 +124,21 @@ class CombineTranslator implements Translator {
             }
         }
 
-        if (primary != null) {
-            if (primary.ctClass().equals(ctClass)) {
-                primaryCtMethod = getCtDeclaredMethod(ctClass, name, template.getParameterTypes());
-                primaryCtMethod.setName(name + "$original");
-            } else {
-                primaryCtMethod = primary.ctMethod();
-                ctClass.addMethod(primaryCtMethod);
-            }
-            
-            if (primaryCtMethod.getReturnType() != CtClass.voidType)
-                body += primaryCtMethod.getReturnType().getSimpleName() + " $r = ";
+        if (primary == null) 
+            throw new RuntimeException("Error: Primary method required by the standard combination");
 
-            body += primaryCtMethod.getName() + "($$); ";            
+        if (primary.ctClass().equals(ctClass)) {
+            primaryCtMethod = getCtDeclaredMethod(ctClass, name, primary.ctMethod().getParameterTypes());
+            primaryCtMethod.setName(name + "$original");
+        } else {
+            primaryCtMethod = primary.ctMethod();
+            ctClass.addMethod(primaryCtMethod);
         }
+        
+        if (primaryCtMethod.getReturnType() != CtClass.voidType)
+            body += primaryCtMethod.getReturnType().getSimpleName() + " $r = ";
+
+        body += primaryCtMethod.getName() + "($$); ";            
 
         for (MethodCopy method : after) {
             if (method.ctClass().getName().equals(ctClass.getName())) {
@@ -149,10 +149,11 @@ class CombineTranslator implements Translator {
             }
         }
 
-        if (primary != null && primaryCtMethod.getReturnType() != CtClass.voidType)
+        if (primaryCtMethod.getReturnType() != CtClass.voidType)
             body += "return $r;";
 
-        CtMethod ctMethod = CtNewMethod.copy(template, name, ctClass, null);
+        CtMethod ctMethod;
+        ctMethod = CtNewMethod.copy(primary.ctMethod(), name, ctClass, null);
         ctMethod.setBody(body + "}");
         ctClass.addMethod(ctMethod);
     }
@@ -190,9 +191,10 @@ class CombineTranslator implements Translator {
                             keyName = parts[1];
                         }
                         
+                        key = keyName + ctMethod.getGenericSignature() + combination.value();
+                    } else {
                         key = keyName + ctMethod.getSignature() + combination.value();
                     }
-                    key = keyName + ctMethod.getSignature() + ctMethod.getReturnType() + combination.value();
                     String finalMethodName = fixedName + "$$" + ctClass.getName().replace(".", "$");
                     CtMethod newMethod = CtNewMethod.copy(ctMethod, finalMethodName, originalClass, null);
                     addToGroupedMethods(groupedMethods, new MethodCopy(ctClass, newMethod, combination.value(), keyName, qualifier), key);

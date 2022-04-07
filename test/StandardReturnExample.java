@@ -11,8 +11,9 @@ class Person {
     }
 
     @Combination("standard")
-    public void before_print_name() {
+    public int before_print_name() {
         System.out.print("Hello, my name is ");
+        return 10;
     }
 
     @Combination("standard")
