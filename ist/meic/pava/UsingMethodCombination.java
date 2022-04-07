@@ -5,7 +5,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 import javassist.CannotCompileException;
@@ -126,7 +125,7 @@ class CombineTranslator implements Translator {
                 ctClass.addMethod(primaryMethod);
             }
         }
-        
+
         String combinationReturn = " " + (combinationReturnType != CtClass.voidType ? combinationReturnType.getName() + " $r = " : "");
         String body = "{ ";
         body += beforeMethodCalls.stream().collect(Collectors.joining(" "));
@@ -188,7 +187,7 @@ class CombineTranslator implements Translator {
                         }
                     }
 
-                    key = keyName + ctMethod.getSignature() + combination.value();
+                    key = keyName + ctMethod.getGenericSignature() + combination.value();
                     String finalMethodName = fixedName + "$" + ctClass.getSimpleName();
                     CtMethod newMethod = CtNewMethod.copy(ctMethod, finalMethodName, originalClass, null);
                     addToGroupedMethods(groupedMethods, new MethodCopy(ctClass, newMethod, combination.value(), keyName, qualifier), key);

@@ -175,7 +175,6 @@ class CombineTranslator implements Translator {
             for (Object annotation : ctMethod.getAnnotations()) {
                 if (annotation instanceof Combination) {
                     Combination combination = (Combination)annotation;
-                    String signature = ctMethod.getSignature();
                     String fixedName = ctMethod.getName().split("\\$")[0];
                     String keyName = fixedName;
                     String qualifier = "";
@@ -186,11 +185,9 @@ class CombineTranslator implements Translator {
                             qualifier = parts[0];
                             keyName = parts[1];
                         }
-
-                        signature = ctMethod.getGenericSignature(); // @extension_5
                     }
 
-                    key = keyName + signature + combination.value();
+                    key = keyName + ctMethod.getGenericSignature() + combination.value();
                     String finalMethodName = fixedName + "$$" + ctClass.getName().replace(".", "$"); // @extension_4
                     CtMethod newMethod = CtNewMethod.copy(ctMethod, finalMethodName, originalClass, null);
                     addToGroupedMethods(groupedMethods, new MethodCopy(ctClass, newMethod, combination.value(), keyName, qualifier), key);
