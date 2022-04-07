@@ -114,9 +114,7 @@ class CombineTranslator implements Translator {
         List<String> afterMethodCalls = getPrefixedMethodCalls(ctClass, name, afterMethods, "after");
 
         CtMethod primaryMethod = null;
-        CtClass combinationReturnType = CtClass.voidType;
         if (primaryMethodCopy != null) {
-            combinationReturnType = primaryMethodCopy.ctMethod().getReturnType();
             if (primaryMethodCopy.ctClass() == ctClass) {
                 primaryMethod = getCtDeclaredMethod(ctClass, name, primaryMethodCopy.ctMethod().getParameterTypes());
                 primaryMethod.setName(name + "$original");
@@ -126,15 +124,14 @@ class CombineTranslator implements Translator {
             }
         }
 
-        String combinationReturn = " " + (combinationReturnType != CtClass.voidType ? combinationReturnType.getName() + " $r = " : "");
         String body = "{ ";
         body += beforeMethodCalls.stream().collect(Collectors.joining(" "));
-        body += combinationReturn + (primaryMethod != null ? (primaryMethod.getName() + "($$); ") : " ");
+        body += (primaryMethod != null ? (primaryMethod.getName() + "($$); ") : " ");
         body += afterMethodCalls.stream().collect(Collectors.joining(" "));
-        body += (combinationReturnType != CtClass.voidType ? " return $r;" : "") + " }";
+        body += " }";
 
         CtMethod template = methods.get(0).ctMethod();
-        CtMethod combinationMethod = CtNewMethod.make(combinationReturnType, name, template.getParameterTypes(), template.getExceptionTypes(), body, ctClass);
+        CtMethod combinationMethod = CtNewMethod.make(CtClass.voidType, name, template.getParameterTypes(), template.getExceptionTypes(), body, ctClass);
         ctClass.addMethod(combinationMethod);
     }
 
