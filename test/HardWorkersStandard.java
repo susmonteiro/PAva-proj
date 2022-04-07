@@ -91,7 +91,7 @@ class ForeignHardworkingPerson extends Person implements Foreign, HardWorker {
     }
 }
 
-public class HardWorkers {
+public class HardWorkersStandard {
 
     public static void main(String args[]) {
 
