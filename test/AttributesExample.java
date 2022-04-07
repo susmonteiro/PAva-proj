@@ -7,8 +7,8 @@ interface FoodProduct {
 
     @Combination("prod")
     default float calcPrice() {
-        System.out.println("FoodProduct: [priceModifier] = " + priceModifier + "\n");
-        return priceModifier;
+        System.out.println("FoodProduct: [priceModifier] = " + "priceModifier" + "\n");
+        return 1;
     }
 }
 
@@ -31,12 +31,17 @@ class Product {
 
     @Combination("prod")
     public float calcPrice() {
-        System.out.println("Product: [" + name + "] = " + price);
+        // hipotese 1
+        StringBuffer text = new StringBuffer().append("Product: [" + "name" + "] = ").append(getPrice());
+        System.out.println(text);
+        // hipotese 2
+        System.out.println(String.format("Product %s", getName()));
+        
         return getPrice();
     }
 }
 
-class Apple extends Product implements FoodProduct {
+class Apple extends Product /* implements FoodProduct */ {
     Apple(String name, float price) {
         super(name, price);
     }
