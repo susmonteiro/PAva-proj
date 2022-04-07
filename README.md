@@ -36,13 +36,23 @@ The default implementation of the project contains the following extentions to t
     - The simple implementation already ensures this, therefore it is not marked on the extended implementation
 4. Support for combining methods inside different packages (e.g. test files are in the test package)
 5. Support standard combination for methods with different return types
-    - The return of the primary method is choosen for the final return
+    - The return of the primary method is chosen for the final return
     - If there isn't any primary method, than the return is *void*
 
 
 
 
 <br>
+
+## Presentation
+! Not too much text (only like 1 sentence per slide)
+
+Example of a presentation (doesnt have necessarily to be like this):
+- Motivation (goal of the project, what we are trying to solve)
+- Fundamental Idea (the solution)
+- Some slides to show our solution
+- Some slides for Extensions
+- Slide like "Questions?"
 
 ## Compile and Run Project 1
 
