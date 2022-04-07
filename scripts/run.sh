@@ -9,12 +9,12 @@ rm -rf target/
 
 if [ "$#" -eq 0 ]; then
     javac -d target/ test/HardWorkers.java
-    javac -d target/ -classpath lib/javassist.jar:. ist/meic/pava/UsingMethodCombination.java
-    java -classpath target/:lib/javassist.jar:. ist.meic.pava.UsingMethodCombination test.HardWorkers
+    javac -d target/ -classpath lib/javassist.jar:. ist/meic/pava/UsingMethodCombinationExtended.java
+    java -classpath target/:lib/javassist.jar:. ist.meic.pava.UsingMethodCombinationExtended test.HardWorkers
 elif [ "$#" -eq 1 ]; then
     javac -d target/ test/$1.java
-    javac -d target/ -classpath lib/javassist.jar:. ist/meic/pava/UsingMethodCombination.java
-    java -classpath target/:lib/javassist.jar:. ist.meic.pava.UsingMethodCombination test.$1
+    javac -d target/ -classpath lib/javassist.jar:. ist/meic/pava/UsingMethodCombinationExtended.java
+    java -classpath target/:lib/javassist.jar:. ist.meic.pava.UsingMethodCombinationExtended test.$1
 else
     javac -d target/ test/$1.java
     javac -d target/ -classpath lib/javassist.jar:. ist/meic/pava/$2.java
