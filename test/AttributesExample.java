@@ -7,8 +7,8 @@ interface FoodProduct {
 
     @Combination("prod")
     default float calcPrice() {
-        System.out.println("FoodProduct: [priceModifier] = " + "priceModifier" + "\n");
-        return 1;
+        System.out.println("FoodProduct: [priceModifier]");
+        return priceModifier;
     }
 }
 
@@ -31,19 +31,32 @@ class Product {
 
     @Combination("prod")
     public float calcPrice() {
-        // hipotese 1
-        StringBuffer text = new StringBuffer().append("Product: [" + "name" + "] = ").append(getPrice());
-        System.out.println(text);
-        // hipotese 2
-        System.out.println(String.format("Product %s", getName()));
-        
+        System.out.println(String.format("Product [%s]", getName()));
         return getPrice();
+    }
+
+    public boolean isHealtyNameShadowing() {
+        return false;
+    }
+
+    @Combination("and")
+    public boolean isHealty() {
+        return isHealtyNameShadowing();
     }
 }
 
-class Apple extends Product /* implements FoodProduct */ {
+class Apple extends Product implements FoodProduct {
     Apple(String name, float price) {
         super(name, price);
+    }
+
+    public boolean isHealtyNameShadowing() {
+        return true;
+    }
+
+    @Combination("and")
+    public boolean isHealty() {
+        return true;
     }
 }
 
@@ -52,12 +65,15 @@ public class AttributesExample {
 
         // @formatter:off
         Product[] products = new Product[] { 
-            new Product("Generic Product", 1.0f), 
-            new Apple("Apple", 1.0f),
+            new Product("Generic Product", 2.0f), 
+            new Apple("Apple", 2.0f),
         };
         // @formatter:on
 
         for (Product product : products)
             System.out.println(product.getName() + " costs " + product.calcPrice() + "\n");
+
+        for (Product product : products)
+            System.out.println(product.getName() + " is healthy: " + product.isHealty() + "\n");
     }
 }

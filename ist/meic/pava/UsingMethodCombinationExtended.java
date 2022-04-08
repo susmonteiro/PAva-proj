@@ -2,10 +2,14 @@ package ist.meic.pava;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import javassist.CannotCompileException;
 import javassist.ClassPool;
@@ -58,17 +62,21 @@ class CombineTranslator implements Translator {
     }
 
     void combine(CtClass ctClass, List<MethodCopy> keyCombinationMethods) throws CannotCompileException, NotFoundException, ClassNotFoundException {
+        MethodCopy primaryMethod = keyCombinationMethods.stream().filter(m -> m.ctClass() == ctClass && m.qualifier().equals("")).findFirst()
+                .orElse(keyCombinationMethods.get(0));
 
-        String value = keyCombinationMethods.get(0).value();
-        if (value.equals("standard"))
-            combineStandard(ctClass, keyCombinationMethods);
-        else if (operations.containsKey(value))
-            combineSimple(ctClass, keyCombinationMethods, operations.get(value));
+        Combination combination = primaryMethod.combination();
+        if (combination.value().equals("standard"))
+            combineStandard(ctClass, keyCombinationMethods, combination);
+        else if (operations.containsKey(combination.value()))
+            combineSimple(ctClass, keyCombinationMethods, combination);
         else
-            throw new RuntimeException("Error: Invalid combination value [" + value + "]! Possible values: ['or', 'and', 'sum', 'prod' and 'standard']");
+            throw new RuntimeException("Error: Invalid combination value [" + combination.value() + "]! Values: ['or', 'and', 'sum', 'prod' and 'standard']");
     }
 
-    void combineSimple(CtClass ctClass, List<MethodCopy> methods, String operation) throws CannotCompileException, NotFoundException, ClassNotFoundException {
+    void combineSimple(CtClass ctClass, List<MethodCopy> methods, Combination combination)
+            throws CannotCompileException, NotFoundException, ClassNotFoundException {
+
         List<String> methodCalls = new ArrayList<String>();
         CtMethod template = methods.get(0).ctMethod();
         String name = methods.get(0).name();
@@ -90,12 +98,17 @@ class CombineTranslator implements Translator {
             methodCalls.add(method.ctMethod().getName() + "($$)");
         }
 
+        if (combination.reverseOrder()) // @extension_6
+            Collections.reverse(methodCalls);
+
+        String operation = CombineTranslator.operations.get(combination.value());
         String body = "{ return " + methodCalls.stream().collect(Collectors.joining(" " + operation + " ")) + "; }";
         ctMethod.setBody(body);
         ctClass.addMethod(ctMethod);
     }
 
-    void combineStandard(CtClass ctClass, List<MethodCopy> methods) throws CannotCompileException, NotFoundException, ClassNotFoundException {
+    void combineStandard(CtClass ctClass, List<MethodCopy> methods, Combination combination)
+            throws CannotCompileException, NotFoundException, ClassNotFoundException {
         String name = methods.get(0).name();
         MethodCopy primaryMethodCopy = null;
         List<MethodCopy> beforeMethods = new ArrayList<MethodCopy>();
@@ -125,6 +138,11 @@ class CombineTranslator implements Translator {
         } else {
             primaryMethod = primaryMethodCopy.ctMethod();
             ctClass.addMethod(primaryMethod);
+        }
+
+        if (combination.reverseOrder()) { // @extension_6
+            Collections.reverse(beforeMethodCalls);
+            Collections.reverse(afterMethodCalls);
         }
 
         String combinationReturn = " " + (combinationReturnType != CtClass.voidType ? combinationReturnType.getName() + " $r = " : ""); // @extension_5
@@ -191,7 +209,7 @@ class CombineTranslator implements Translator {
                     key = keyName + ctMethod.getGenericSignature() + combination.value();
                     String finalMethodName = fixedName + "$$" + ctClass.getName().replace(".", "$"); // @extension_4
                     CtMethod newMethod = CtNewMethod.copy(ctMethod, finalMethodName, originalClass, null);
-                    addToGroupedMethods(groupedMethods, new MethodCopy(ctClass, newMethod, combination.value(), keyName, qualifier), key);
+                    addToGroupedMethods(groupedMethods, new MethodCopy(ctClass, newMethod, combination, keyName, qualifier), key);
                 }
             }
         }
@@ -216,21 +234,21 @@ class CombineTranslator implements Translator {
     public static class MethodCopy {
         private CtClass ctClass;
         private CtMethod ctMethod;
-        private String value;
+        private Combination combination;
         private String name;
         private String qualifier;
 
         public MethodCopy() {}
 
-        public MethodCopy(CtClass ctClass, CtMethod ctMethod, String value, String name) {
+        public MethodCopy(CtClass ctClass, CtMethod ctMethod, Combination combination, String name) {
             this.ctClass = ctClass;
             this.ctMethod = ctMethod;
-            this.value = value;
+            this.combination = combination;
             this.name = name;
         }
 
-        public MethodCopy(CtClass ctClass, CtMethod ctMethod, String value, String name, String qualifier) {
-            this(ctClass, ctMethod, value, name);
+        public MethodCopy(CtClass ctClass, CtMethod ctMethod, Combination combination, String name, String qualifier) {
+            this(ctClass, ctMethod, combination, name);
             this.qualifier = qualifier;
         }
 
@@ -242,8 +260,8 @@ class CombineTranslator implements Translator {
             return this.ctMethod;
         }
 
-        public String value() {
-            return this.value;
+        public Combination combination() {
+            return this.combination;
         }
 
         public String name() {
@@ -265,13 +283,17 @@ class CombineTranslator implements Translator {
                 return false;
 
             MethodCopy other = (MethodCopy)o;
-            return this.ctClass() == other.ctClass() && this.ctMethod().getLongName().equals(other.ctMethod().getLongName()) && this.value() == other.value()
-                    && this.qualifier() == other.qualifier();
+            return this.ctClass() == other.ctClass() && this.ctMethod().getLongName().equals(other.ctMethod().getLongName())
+                    && this.combination() == other.combination() && this.qualifier() == other.qualifier();
+        }
+
+        private String toStringCombination() {
+            return "{value=\'" + this.combination.value() + "\', reverseOrder=" + this.combination.reverseOrder() + "}";
         }
 
         @Override
         public String toString() {
-            return "MethodCopy{method=\"" + this.ctMethod.getLongName() + "\", class=\"" + this.ctClass.getName() + "\", value=\"" + this.value
+            return "MethodCopy{method=\"" + this.ctMethod.getLongName() + "\", class=\"" + this.ctClass.getName() + "\", combination=\"" + toStringCombination()
                     + "\", qualifier=\"" + this.qualifier + "\"}";
         }
     }

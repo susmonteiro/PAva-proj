@@ -38,8 +38,12 @@ The default implementation of the project contains the following extentions to t
 5. Support standard combination for methods with different return types
     - The return of the primary method is chosen for the final return
     - If there isn't any primary method, than the return is *void*
-
-
+6. Optional combination flag to allow to reverse the order of the combination (reverseOrder = true)
+    - In simple combination, the order will be: superclass, interfaces (reverse order) and main class original method
+    - In standard combination, the befores and afters will be executed in reversed (but the befores will stil come before the afters)
+7. Support for attributes
+    - This mechanism only works if the methods do not access private attributes or call private methods
+    - This mechanism suffers from name shadowing 
 
 
 <br>
