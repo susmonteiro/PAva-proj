@@ -43,11 +43,12 @@ The default implementation of the project contains the following extentions to t
     - In standard combination, the befores and afters will be executed in reversed (but the befores will stil come before the afters)
 7. Suport for method overloading (two method with the same name but different parameters will not participate in the same combination)
 8. Collect combination: collects all the returns in a single array and returns it
-9. Around and callNext method combination
+9. Conditional and default method combination
     - Both methods are required for the mechanism to work (otherwise it is ignored)
-    - If there are multiple around or callNext methods, the one closer to the primary is chosen
-    - The return type between the primary and the callNext method must match (otherwise Java will throw an exception)
-    - The return type of the around method must evaluate to a boolean (otherwise Java will throw an exception)
+    - If there are multiple conditionals or default methods, the more specific is called
+    - The return type of the primary and the default method must match (otherwise Java will throw an exception)
+    - The return type of the conditional method must evaluate to a boolean (otherwise Java will throw an exception)
+    - The before and after methods are also called despite the result of the conditional operation
 
 <br>
 
@@ -98,42 +99,3 @@ You can also use the provided script:
     $sh scripts/run.sh <TestClass> <ImplementationClass>
     (to run the <ImplementationClass> implementation with the <TestClass> test)
 ```
-
-
-
-
-## Draft:
-
-To show in presentation:
-
-```java
-
-interface HardWorker {
-    isHardWorker()
-}
-
-interface Female {
-    isHardWorker()
-}
-
-class Student extends Person implemtns HardWorker, Female {
-    isHardWorker$HardWorker()
-
-    isHardWorker$Female()
-        return HardWorker.super.isHardWorker || isHardWorker$HardWorker()
-
-    isHardWorker$Student()
-        return isHardWorker$Female() || Female.super.isHardWorker()
-
-    isHardWorker()
-        return isHardWorker$Student() || super.isHardWorker()
-    
-}
-
-class Person extends Animal {
-    isHardWorker$original()
-
-    isHardWorker()
-        return false || isHardWorker$original()
-}  
-```     

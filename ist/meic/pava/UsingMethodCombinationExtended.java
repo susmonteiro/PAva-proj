@@ -37,7 +37,7 @@ public class UsingMethodCombinationExtended {
 
 class CombineTranslator implements Translator {
     private static final Map<String, String> operations = Map.of("or", "||", "and", "&&", "sum", "+", "prod", "*"); // @extension_1 @extension_2
-    private static final List<String> qualifiers = Arrays.asList("before", "after", "around", "callNext");
+    private static final List<String> qualifiers = Arrays.asList("before", "after", "conditional", "default");
 
     public void start(ClassPool pool) throws NotFoundException, CannotCompileException {
         importDepencencies(pool);
@@ -108,8 +108,8 @@ class CombineTranslator implements Translator {
                 primaryMethodCopy = method;
         }
 
-        MethodCopy aroundMethod = getFirstMethodWithQualifier(methods, "around");
-        MethodCopy callNextMethod = getFirstMethodWithQualifier(methods, "callNext");
+        MethodCopy conditionalMethod = getFirstMethodWithQualifier(methods, "conditional");
+        MethodCopy defaultMethod = getFirstMethodWithQualifier(methods, "default");
 
         // if there is no primary method, don't create a generic method
         if (primaryMethodCopy == null)
@@ -139,14 +139,14 @@ class CombineTranslator implements Translator {
         body += beforeMethodCalls.stream().collect(Collectors.joining(" "));
 
         body += combinationReturn;
-        if (aroundMethod != null && callNextMethod != null) { // @extension_9
-            CtMethod aroundCtMethod = aroundMethod.ctMethod();
-            CtMethod callNextCtMethod = callNextMethod.ctMethod();
-            ctClass.addMethod(aroundCtMethod);
-            ctClass.addMethod(callNextCtMethod);
+        if (conditionalMethod != null && defaultMethod != null) { // @extension_9
+            CtMethod conditionalCtMethod = conditionalMethod.ctMethod();
+            CtMethod defaultNextCtMethod = defaultMethod.ctMethod();
+            ctClass.addMethod(conditionalCtMethod);
+            ctClass.addMethod(defaultNextCtMethod);
             body += combinationReturnType != CtClass.voidType
-                    ? "(" + aroundCtMethod.getName() + "($$)" + ") ? " + primaryMethod.getName() + "($$) : " + callNextCtMethod.getName() + "($$); "
-                    : "if (" + aroundCtMethod.getName() + "($$)" + ")" + primaryMethod.getName() + "($$); else " + callNextCtMethod.getName() + "($$); ";
+                    ? "(" + conditionalCtMethod.getName() + "($$)" + ") ? " + primaryMethod.getName() + "($$) : " + defaultNextCtMethod.getName() + "($$); "
+                    : "if (" + conditionalCtMethod.getName() + "($$)" + ")" + primaryMethod.getName() + "($$); else " + defaultNextCtMethod.getName() + "($$); ";
         } else {
             body += (primaryMethod != null ? (primaryMethod.getName() + "($$); ") : " ");
         }

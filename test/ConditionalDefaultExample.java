@@ -53,14 +53,14 @@ class Student extends Person {
     }
 
     @Combination("standard")
-    public boolean around_printInfo(boolean cond) {
-        System.out.println("[Student] -> around_printInfo");
+    public boolean conditional_printInfo(boolean cond) {
+        System.out.println("[Student] -> conditional_printInfo");
         return cond;
     }
 
     @Combination("standard")
-    public void callNext_printInfo(boolean cond) {
-        System.out.println("[Student] -> callNext_printInfo");
+    public void default_printInfo(boolean cond) {
+        System.out.println("[Student] -> default_printInfo");
     }
 
     @Combination("standard")
@@ -80,20 +80,20 @@ class Student extends Person {
     }
 
     @Combination("standard")
-    public boolean around_getNumber(boolean cond) {
-        System.out.println("[Student] -> around_getNumber");
+    public boolean conditional_getNumber(boolean cond) {
+        System.out.println("[Student] -> conditional_getNumber");
         return cond;
     }
 
     @Combination("standard")
-    public int callNext_getNumber(boolean cond) {
-        System.out.println("[Student] -> callNext_getNumber");
+    public int default_getNumber(boolean cond) {
+        System.out.println("[Student] -> default_getNumber");
         return -10;
     }
 
 }
 
-public class AroundCallNextExample {
+public class ConditionalDefaultExample {
 
     public static void main(String args[]) {
         Student student = new Student("John");
