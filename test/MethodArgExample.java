@@ -5,7 +5,7 @@ import ist.meic.pava.Combination;
 interface Number1 {
     @Combination("prod")
     default int value(int mult) {
-        System.out.println("Number1: 1 * " + mult + " = " + 1 * mult);
+        System.out.println(String.format("Number1: 1 * %d = %d", mult, 1 * mult));
         return 1 * mult;
     }
 }
@@ -13,7 +13,7 @@ interface Number1 {
 interface Number2 {
     @Combination("prod")
     default int value(int mult) {
-        System.out.println("Number2: 2 * " + mult + " = " + 2 * mult);
+        System.out.println(String.format("Number3: 2 * %d = %d", mult, 2 * mult));
         return 2 * mult;
     }
 }
@@ -21,7 +21,7 @@ interface Number2 {
 interface Number3 {
     @Combination("prod")
     default int value(int mult) {
-        System.out.println("Number3: 3 * " + mult + " = " + 3 * mult);
+        System.out.println(String.format("Number3: 3 * %d = %d", mult, 3 * mult));
         return 3 * mult;
     }
 }
@@ -29,7 +29,7 @@ interface Number3 {
 interface Number4 {
     @Combination("prod")
     default int value(int mult) {
-        System.out.println("Number4: 4 * " + mult + " = " + 4 * mult);
+        System.out.println(String.format("Number4: 4 * %d = %d", mult, 4 * mult));
         return 4 * mult;
     }
 }
@@ -43,7 +43,7 @@ class MultFactorial {
 
     @Combination("prod")
     public int value(int mult) {
-        System.out.println("MultFactorial: 1");
+        System.out.println(String.format("MultFactorial: %d", mult));
         return 1;
     }
 
@@ -92,7 +92,7 @@ public class MethodArgExample {
         for (int i = 0; i < 5; i++) {
             System.out.println("========== [ mult = " + i + " ] ==========");
             for (MultFactorial multFactorial : multFactorials)
-                System.out.println(multFactorial.operation() + " = " + multFactorial.value(1) + "\n");
+                System.out.println("Result = " + multFactorial.value(i) + "\n");
         }
     }
 }
