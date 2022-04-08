@@ -41,9 +41,17 @@ The default implementation of the project contains the following extentions to t
 6. Optional combination flag to allow to reverse the order of the combination (reverseOrder = true)
     - In simple combination, the order will be: superclass, interfaces (reverse order) and main class original method
     - In standard combination, the befores and afters will be executed in reversed (but the befores will stil come before the afters)
-7. Support for attributes
+7. Suport for method overloading (two method with the same name but different parameters will not participate in the same combination)
+
+<br>
+
+## Problems
+1. Support for attributes
     - This mechanism only works if the methods do not access private attributes or call private methods
-    - This mechanism suffers from name shadowing 
+    - This mechanism suffers from name shadowing
+2. Lambda expressions
+    - The system is not capable of copying method that contain lambda expressions
+    - An example of a forbiden expression is: `System.out.println("Hello, my name is " + name "!");` where `name` is a variable
 
 
 <br>

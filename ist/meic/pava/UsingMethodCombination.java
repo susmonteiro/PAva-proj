@@ -185,7 +185,7 @@ class CombineTranslator implements Translator {
                         }
                     }
 
-                    key = keyName + ctMethod.getGenericSignature() + combination.value();
+                    key = keyName + combination.value();
                     String finalMethodName = fixedName + "$" + ctClass.getSimpleName();
                     CtMethod newMethod = CtNewMethod.copy(ctMethod, finalMethodName, originalClass, null);
                     addToGroupedMethods(groupedMethods, new MethodCopy(ctClass, newMethod, combination.value(), keyName, qualifier), key);

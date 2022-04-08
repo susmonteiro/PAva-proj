@@ -3,13 +3,10 @@ package ist.meic.pava;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import javassist.CannotCompileException;
 import javassist.ClassPool;
@@ -56,7 +53,6 @@ class CombineTranslator implements Translator {
     void combineMethods(CtClass ctClass) throws ClassNotFoundException, CannotCompileException, NotFoundException {
         Map<String, List<MethodCopy>> combinationMethods = new HashMap<String, List<MethodCopy>>();
         retrieveCombinationMethods(ctClass, ctClass, combinationMethods);
-
         for (List<MethodCopy> keyCombinationMethods : combinationMethods.values())
             combine(ctClass, keyCombinationMethods.stream().distinct().collect(Collectors.toList()));
     }
@@ -124,7 +120,8 @@ class CombineTranslator implements Translator {
         }
 
         // if there is no primary method, don't create a generic method
-        if (primaryMethodCopy == null) return;
+        if (primaryMethodCopy == null)
+            return;
 
         List<String> beforeMethodCalls = getPrefixedMethodCalls(ctClass, name, beforeMethods, "before");
         List<String> afterMethodCalls = getPrefixedMethodCalls(ctClass, name, afterMethods, "after");
@@ -197,16 +194,16 @@ class CombineTranslator implements Translator {
                     String fixedName = ctMethod.getName().split("\\$")[0];
                     String keyName = fixedName;
                     String qualifier = "";
-                    String key = "";
                     if (combination.value().equals("standard")) {
                         String[] parts = fixedName.split("_", 2);
                         if (CombineTranslator.qualifiers.contains(parts[0])) {
-                            qualifier = parts[0];
                             keyName = parts[1];
+                            qualifier = parts[0];
                         }
                     }
 
-                    key = keyName + ctMethod.getGenericSignature() + combination.value();
+                    String signature = ctMethod.getSignature().substring(1, ctMethod.getSignature().indexOf(")")); // @extension_7
+                    String key = keyName + "$" + signature + "$" + combination.value();
                     String finalMethodName = fixedName + "$$" + ctClass.getName().replace(".", "$"); // @extension_4
                     CtMethod newMethod = CtNewMethod.copy(ctMethod, finalMethodName, originalClass, null);
                     addToGroupedMethods(groupedMethods, new MethodCopy(ctClass, newMethod, combination, keyName, qualifier), key);
