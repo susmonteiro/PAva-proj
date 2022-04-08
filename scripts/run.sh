@@ -6,6 +6,7 @@ if [ "$#" -ge 3 ]; then
 fi
 
 rm -rf target/
+mkdir target/
 
 if [ "$#" -eq 0 ]; then
     javac -d target/ test/HardWorkersStandard.java

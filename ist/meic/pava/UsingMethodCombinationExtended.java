@@ -36,10 +36,14 @@ public class UsingMethodCombinationExtended {
 }
 
 class CombineTranslator implements Translator {
-    private static final Map<String, String> operations = Map.of("or", "||", "and", "&&", "sum", "+", "prod", "*"); // @extension_1 @extension_2
-    private static final List<String> qualifiers = Arrays.asList("before", "after", "conditional", "default");
+    private static Map<String, String> operations = new HashMap<String, String>();
+    private static List<String> qualifiers = Arrays.asList("before", "after", "conditional", "default");
 
     public void start(ClassPool pool) throws NotFoundException, CannotCompileException {
+        CombineTranslator.operations.put("or", "||");
+        CombineTranslator.operations.put("and", "&&");
+        CombineTranslator.operations.put("sum", "+"); // @extension_1
+        CombineTranslator.operations.put("prod", "*"); // @extension_2
         importDepencencies(pool);
     }
 
@@ -146,7 +150,8 @@ class CombineTranslator implements Translator {
             ctClass.addMethod(defaultNextCtMethod);
             body += combinationReturnType != CtClass.voidType
                     ? "(" + conditionalCtMethod.getName() + "($$)" + ") ? " + primaryMethod.getName() + "($$) : " + defaultNextCtMethod.getName() + "($$); "
-                    : "if (" + conditionalCtMethod.getName() + "($$)" + ")" + primaryMethod.getName() + "($$); else " + defaultNextCtMethod.getName() + "($$); ";
+                    : "if (" + conditionalCtMethod.getName() + "($$)" + ")" + primaryMethod.getName() + "($$); else " + defaultNextCtMethod.getName()
+                            + "($$); ";
         } else {
             body += (primaryMethod != null ? (primaryMethod.getName() + "($$); ") : " ");
         }

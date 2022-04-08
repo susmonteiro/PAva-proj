@@ -35,10 +35,13 @@ public class UsingMethodCombination {
 }
 
 class CombineTranslator implements Translator {
-    private static final Map<String, String> operations = Map.of("or", "||", "and", "&&");
-    private static final List<String> qualifiers = Arrays.asList("before", "after");
+    private static Map<String, String> operations = new HashMap<String, String>();
+    private static List<String> qualifiers = Arrays.asList("before", "after");
 
-    public void start(ClassPool pool) throws NotFoundException, CannotCompileException {}
+    public void start(ClassPool pool) throws NotFoundException, CannotCompileException {
+        CombineTranslator.operations.put("or", "||");
+        CombineTranslator.operations.put("and", "&&");
+    }
 
     public void onLoad(ClassPool pool, String className) throws NotFoundException, CannotCompileException {
         CtClass ctClass = pool.get(className);
