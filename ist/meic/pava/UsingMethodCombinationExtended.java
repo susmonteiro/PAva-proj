@@ -62,6 +62,7 @@ class CombineTranslator implements Translator {
         pool.importPackage("java.util.ArrayList");
     }
 
+    // Get methods grouped and compute the combination on each one of those groups
     void combineMethods(CtClass ctClass) throws ClassNotFoundException, CannotCompileException, NotFoundException {
         Map<String, List<MethodCopy>> combinationMethods = new HashMap<String, List<MethodCopy>>();
         retrieveCombinationMethods(ctClass, ctClass, combinationMethods);
@@ -69,7 +70,9 @@ class CombineTranslator implements Translator {
             combine(ctClass, keyCombinationMethods.stream().distinct().collect(Collectors.toList()));
     }
 
+    // Call appropriate method combination type (simple or standard)
     void combine(CtClass ctClass, List<MethodCopy> keyCombinationMethods) throws CannotCompileException, NotFoundException, ClassNotFoundException {
+        // Look for "reverse" flag for @extension_6
         MethodCopy primaryMethod = keyCombinationMethods.stream().filter(m -> m.ctClass() == ctClass && m.qualifier().equals("")).findFirst()
                 .orElse(keyCombinationMethods.get(0));
 
@@ -79,7 +82,7 @@ class CombineTranslator implements Translator {
         else if (operations.containsKey(combination.value()))
             combineSimple(ctClass, keyCombinationMethods, combination);
         else if (combination.value().equals("collect"))
-            combileCollection(ctClass, keyCombinationMethods, combination); // @extension_8
+            combineCollection(ctClass, keyCombinationMethods, combination); // @extension_8
         else
             throw new RuntimeException("Error: Invalid combination value [" + combination.value() + "]! Values: ['or', 'and', 'sum', 'prod' and 'standard']");
     }
@@ -164,7 +167,7 @@ class CombineTranslator implements Translator {
         ctClass.addMethod(combinationMethod);
     }
 
-    void combileCollection(CtClass ctClass, List<MethodCopy> methods, Combination combination)
+    void combineCollection(CtClass ctClass, List<MethodCopy> methods, Combination combination)
             throws CannotCompileException, NotFoundException, ClassNotFoundException {
 
         List<String> methodCalls = new ArrayList<String>();
@@ -297,6 +300,7 @@ class CombineTranslator implements Translator {
         }
     }
 
+    // Stores a method to be copied from class/interface A to class/interface B
     public static class MethodCopy {
         private CtClass ctClass;
         private CtMethod ctMethod;

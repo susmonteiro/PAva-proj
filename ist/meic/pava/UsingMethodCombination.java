@@ -52,6 +52,7 @@ class CombineTranslator implements Translator {
         }
     }
 
+    // Get methods grouped and compute the combination on each one of those groups
     void combineMethods(CtClass ctClass) throws ClassNotFoundException, CannotCompileException, NotFoundException {
         Map<String, List<MethodCopy>> combinationMethods = new HashMap<String, List<MethodCopy>>();
         retrieveCombinationMethods(ctClass, ctClass, combinationMethods);
@@ -60,6 +61,7 @@ class CombineTranslator implements Translator {
             combine(ctClass, keyCombinationMethods);
     }
 
+    // Call appropriate method combination type (simple or standard)
     void combine(CtClass ctClass, List<MethodCopy> keyCombinationMethods) throws CannotCompileException, NotFoundException, ClassNotFoundException {
 
         String value = keyCombinationMethods.get(0).value();
@@ -78,6 +80,7 @@ class CombineTranslator implements Translator {
 
         CtMethod ctMethod = getCtDeclaredMethod(ctClass, name, template.getParameterTypes());
         if (ctMethod != null) {
+            // if method existed in class, change its name and create a copy
             ctMethod.setName(name + "$original");
             ctMethod = CtNewMethod.copy(ctMethod, name, ctClass, null);
             methodCalls.add(name + "$original($$)");
@@ -213,6 +216,7 @@ class CombineTranslator implements Translator {
         }
     }
 
+    // Stores a method to be copied from class/interface A to class/interface B
     public static class MethodCopy {
         private CtClass ctClass;
         private CtMethod ctMethod;
