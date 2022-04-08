@@ -17,6 +17,33 @@ as similar as possible to the analogous mechanisms that are pre-defined in langu
 
 <br>
 
+## Compile and Run Project
+
+```
+    $ javac -d target/ <TestFile>
+
+    $ javac -d target/ -classpath lib/javassist.jar:. <ImplementationFile>
+
+    $ java -classpath target/:lib/javassist.jar:. <ImplementationClass> <TestClass>
+
+```
+
+You can also use the provided script:
+
+```
+    Example:
+    $sh scripts/run.sh HardWorkers UsingMethodCombination
+
+    $ sh scripts/run.sh       
+    (to run the default implementation with the HardWorkers test)
+
+    $sh scripts/run.sh <TestClass> 
+    (to run the default implementation with the <TestClass> test)
+
+    $sh scripts/run.sh <TestClass> <ImplementationClass>
+    (to run the <ImplementationClass> implementation with the <TestClass> test)
+```
+
 ## Implementations
 There are two implementations of the Combination mechanism available:
 - Simple implementation (@see *UsingMethodCombination*) that implements what is specified in the project's assignment
@@ -52,7 +79,7 @@ The default implementation of the project contains the following extentions to t
 
 <br>
 
-## Problems
+## Limitations
 1. Support for attributes
     - This mechanism only works if the methods do not access private attributes or call private methods
     - This mechanism suffers from name shadowing
@@ -62,40 +89,3 @@ The default implementation of the project contains the following extentions to t
 
 
 <br>
-
-## Presentation
-! Not too much text (only like 1 sentence per slide)
-
-Example of a presentation (doesnt have necessarily to be like this):
-- Motivation (goal of the project, what we are trying to solve)
-- Fundamental Idea (the solution)
-- Some slides to show our solution
-- Some slides for Extensions
-- Slide like "Questions?"
-
-## Compile and Run Project 1
-
-```
-    $ javac -d target/ <TestFile>
-
-    $ javac -d target/ -classpath lib/javassist.jar:. <ImplementationFile>
-
-    $ java -classpath target/:lib/javassist.jar:. <ImplementationClass> <TestClass>
-
-```
-
-You can also use the provided script:
-
-```
-    Example:
-    $sh scripts/run.sh HardWorkers UsingMethodCombination
-
-    $ sh scripts/run.sh       
-    (to run the default implementation with the HardWorkers test)
-
-    $sh scripts/run.sh <TestClass> 
-    (to run the default implementation with the <TestClass> test)
-
-    $sh scripts/run.sh <TestClass> <ImplementationClass>
-    (to run the <ImplementationClass> implementation with the <TestClass> test)
-```
