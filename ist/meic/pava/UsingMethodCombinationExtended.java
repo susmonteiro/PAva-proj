@@ -39,7 +39,9 @@ class CombineTranslator implements Translator {
     private static final Map<String, String> operations = Map.of("or", "||", "and", "&&", "sum", "+", "prod", "*"); // @extension_1 @extension_2
     private static final List<String> qualifiers = Arrays.asList("before", "after");
 
-    public void start(ClassPool pool) throws NotFoundException, CannotCompileException {}
+    public void start(ClassPool pool) throws NotFoundException, CannotCompileException {
+        importDepencencies(pool);
+    }
 
     public void onLoad(ClassPool pool, String className) throws NotFoundException, CannotCompileException {
         CtClass ctClass = pool.get(className);
@@ -48,6 +50,12 @@ class CombineTranslator implements Translator {
         } catch (ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    void importDepencencies(ClassPool pool) {
+        pool.importPackage("java.util.Collections");
+        pool.importPackage("java.util.List");
+        pool.importPackage("java.util.ArrayList");
     }
 
     void combineMethods(CtClass ctClass) throws ClassNotFoundException, CannotCompileException, NotFoundException {
@@ -66,6 +74,8 @@ class CombineTranslator implements Translator {
             combineStandard(ctClass, keyCombinationMethods, combination);
         else if (operations.containsKey(combination.value()))
             combineSimple(ctClass, keyCombinationMethods, combination);
+        else if (combination.value().equals("collect"))
+            combileCollection(ctClass, keyCombinationMethods, combination); // @extension_8
         else
             throw new RuntimeException("Error: Invalid combination value [" + combination.value() + "]! Values: ['or', 'and', 'sum', 'prod' and 'standard']");
     }
@@ -74,28 +84,7 @@ class CombineTranslator implements Translator {
             throws CannotCompileException, NotFoundException, ClassNotFoundException {
 
         List<String> methodCalls = new ArrayList<String>();
-        CtMethod template = methods.get(0).ctMethod();
-        String name = methods.get(0).name();
-
-        CtMethod ctMethod = getCtDeclaredMethod(ctClass, name, template.getParameterTypes());
-        if (ctMethod != null) {
-            ctMethod.setName(name + "$original");
-            ctMethod = CtNewMethod.copy(ctMethod, name, ctClass, null);
-            methodCalls.add(name + "$original($$)");
-        } else {
-            ctMethod = CtNewMethod.copy(template, name, ctClass, null);
-        }
-
-        for (MethodCopy method : methods) {
-            if (method.ctClass().getName().equals(ctClass.getName()))
-                continue;
-
-            ctClass.addMethod(method.ctMethod());
-            methodCalls.add(method.ctMethod().getName() + "($$)");
-        }
-
-        if (combination.reverseOrder()) // @extension_6
-            Collections.reverse(methodCalls);
+        CtMethod ctMethod = getSimpleMethodCalls(ctClass, methods, combination, methodCalls);
 
         String operation = CombineTranslator.operations.get(combination.value());
         String body = "{ return " + methodCalls.stream().collect(Collectors.joining(" " + operation + " ")) + "; }";
@@ -152,6 +141,60 @@ class CombineTranslator implements Translator {
         CtMethod template = methods.get(0).ctMethod();
         CtMethod combinationMethod = CtNewMethod.make(combinationReturnType, name, template.getParameterTypes(), template.getExceptionTypes(), body, ctClass);
         ctClass.addMethod(combinationMethod);
+    }
+
+    void combileCollection(CtClass ctClass, List<MethodCopy> methods, Combination combination)
+            throws CannotCompileException, NotFoundException, ClassNotFoundException {
+
+        List<String> methodCalls = new ArrayList<String>();
+        CtMethod ctMethod = getSimpleMethodCalls(ctClass, methods, combination, methodCalls);
+
+        String returnElementType = ctMethod.getReturnType().getSimpleName().replace("[]", "");
+        String body = "{ List $r = new ArrayList(); ";
+
+        int i = 0;
+        for (String methodCall : methodCalls) {
+            body += returnElementType + "[] $temp_" + i + " = " + methodCall + "; ";
+            body += "if ($temp_" + i + " != null) ";
+            body += "Collections.addAll($r, " + methodCall + "); ";
+            i++;
+        }
+
+        body += returnElementType + "[] $r_list = new " + returnElementType + "[$r.size()]; ";
+        body += "$r.toArray($r_list); return $r_list; }";
+
+        ctMethod.setBody(body);
+        ctClass.addMethod(ctMethod);
+    }
+
+    // Gets the list of method calls for simple combination types and returns the new primary method
+    CtMethod getSimpleMethodCalls(CtClass ctClass, List<MethodCopy> methods, Combination combination, List<String> outMethodCalls)
+            throws NotFoundException, CannotCompileException {
+
+        CtMethod template = methods.get(0).ctMethod();
+        String name = methods.get(0).name();
+
+        CtMethod ctMethod = getCtDeclaredMethod(ctClass, name, template.getParameterTypes());
+        if (ctMethod != null) {
+            ctMethod.setName(name + "$original");
+            ctMethod = CtNewMethod.copy(ctMethod, name, ctClass, null);
+            outMethodCalls.add(name + "$original($$)");
+        } else {
+            ctMethod = CtNewMethod.copy(template, name, ctClass, null);
+        }
+
+        for (MethodCopy method : methods) {
+            if (method.ctClass().getName().equals(ctClass.getName()))
+                continue;
+
+            ctClass.addMethod(method.ctMethod());
+            outMethodCalls.add(method.ctMethod().getName() + "($$)");
+        }
+
+        if (combination.reverseOrder()) // @extension_6
+            Collections.reverse(outMethodCalls);
+
+        return ctMethod;
     }
 
     // Stores and returns all the calls for all the methods with a given prefix
@@ -281,7 +324,7 @@ class CombineTranslator implements Translator {
 
             MethodCopy other = (MethodCopy)o;
             return this.ctClass() == other.ctClass() && this.ctMethod().getLongName().equals(other.ctMethod().getLongName())
-                    && this.combination() == other.combination() && this.qualifier() == other.qualifier();
+                    && this.combination().value() == other.combination().value() && this.qualifier() == other.qualifier();
         }
 
         private String toStringCombination() {

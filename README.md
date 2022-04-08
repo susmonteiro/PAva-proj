@@ -29,8 +29,8 @@ There are two implementations of the Combination mechanism available:
 *Note: this extensions are marked on the code using the following annotation:* @extension_\<number\>
 
 The default implementation of the project contains the following extentions to the base assignment:
-1. Sum Combination (sums all the returned values)
-2. Product Combination (multiplies all the returned values)
+1. Sum Combination: sums all the returned values
+2. Product Combination: multiplies all the returned values
 3. Support for multiple complex class hierarchies (e.g. classes that implement multiple interfaces that extend a common interface)
     - Note that the implementation ensures a method on any class/interface is only called once (this is very important for the *Sum* and *Product Combination*)
     - The simple implementation already ensures this, therefore it is not marked on the extended implementation
@@ -42,6 +42,7 @@ The default implementation of the project contains the following extentions to t
     - In simple combination, the order will be: superclass, interfaces (reverse order) and main class original method
     - In standard combination, the befores and afters will be executed in reversed (but the befores will stil come before the afters)
 7. Suport for method overloading (two method with the same name but different parameters will not participate in the same combination)
+8. Collect combination: collects all the returns in a single array and returns it
 
 <br>
 
