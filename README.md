@@ -43,6 +43,11 @@ The default implementation of the project contains the following extentions to t
     - In standard combination, the befores and afters will be executed in reversed (but the befores will stil come before the afters)
 7. Suport for method overloading (two method with the same name but different parameters will not participate in the same combination)
 8. Collect combination: collects all the returns in a single array and returns it
+9. Around and callNext method combination
+    - Both methods are required for the mechanism to work (otherwise it is ignored)
+    - If there are multiple around or callNext methods, the one closer to the primary is chosen
+    - The return type between the primary and the callNext method must match (otherwise Java will throw an exception)
+    - The return type of the around method must evaluate to a boolean (otherwise Java will throw an exception)
 
 <br>
 

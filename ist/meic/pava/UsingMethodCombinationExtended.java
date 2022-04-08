@@ -37,7 +37,7 @@ public class UsingMethodCombinationExtended {
 
 class CombineTranslator implements Translator {
     private static final Map<String, String> operations = Map.of("or", "||", "and", "&&", "sum", "+", "prod", "*"); // @extension_1 @extension_2
-    private static final List<String> qualifiers = Arrays.asList("before", "after");
+    private static final List<String> qualifiers = Arrays.asList("before", "after", "around", "callNext");
 
     public void start(ClassPool pool) throws NotFoundException, CannotCompileException {
         importDepencencies(pool);
@@ -108,6 +108,9 @@ class CombineTranslator implements Translator {
                 primaryMethodCopy = method;
         }
 
+        MethodCopy aroundMethod = getFirstMethodWithQualifier(methods, "around");
+        MethodCopy callNextMethod = getFirstMethodWithQualifier(methods, "callNext");
+
         // if there is no primary method, don't create a generic method
         if (primaryMethodCopy == null)
             return;
@@ -134,7 +137,20 @@ class CombineTranslator implements Translator {
         String combinationReturn = " " + (combinationReturnType != CtClass.voidType ? combinationReturnType.getName() + " $r = " : ""); // @extension_5
         String body = "{ ";
         body += beforeMethodCalls.stream().collect(Collectors.joining(" "));
-        body += combinationReturn + (primaryMethod != null ? (primaryMethod.getName() + "($$); ") : " ");
+
+        body += combinationReturn;
+        if (aroundMethod != null && callNextMethod != null) { // @extension_9
+            CtMethod aroundCtMethod = aroundMethod.ctMethod();
+            CtMethod callNextCtMethod = callNextMethod.ctMethod();
+            ctClass.addMethod(aroundCtMethod);
+            ctClass.addMethod(callNextCtMethod);
+            body += combinationReturnType != CtClass.voidType
+                    ? "(" + aroundCtMethod.getName() + "($$)" + ") ? " + primaryMethod.getName() + "($$) : " + callNextCtMethod.getName() + "($$); "
+                    : "if (" + aroundCtMethod.getName() + "($$)" + ")" + primaryMethod.getName() + "($$); else " + callNextCtMethod.getName() + "($$); ";
+        } else {
+            body += (primaryMethod != null ? (primaryMethod.getName() + "($$); ") : " ");
+        }
+
         body += afterMethodCalls.stream().collect(Collectors.joining(" "));
         body += (combinationReturnType != CtClass.voidType ? " return $r;" : "") + " }";
 
@@ -210,6 +226,11 @@ class CombineTranslator implements Translator {
         }
 
         return methodCalls;
+    }
+
+    // Returns the first method that matches the specified qualifier (null if none)
+    MethodCopy getFirstMethodWithQualifier(List<MethodCopy> methods, String qualifier) {
+        return methods.stream().filter(m -> m.qualifier().equals(qualifier)).findFirst().orElse(null);
     }
 
     // Retrieve all the reachable methods from a given class
