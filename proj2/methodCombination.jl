@@ -1,54 +1,58 @@
-struct GenericFunction
+struct SpecificMethod
     name
     parameters
-    symbol
-end
-
-macro defgeneric(form, symbol=:standard)
-    if symbol != :standard && symbol != :tuple
-        # ? best exception to throw
-        throw(ArgumentError("Symbol must be \"standard\" or \"tuple\""))
-    end
-    let name = form.args[1],
-        parameters = form.args[2:end],
-        symbol = symbol
-    esc(:($(name) = 
-        GenericFunction(
-            $(QuoteNode(name)),
-            $((parameters...,)),
-            $(QuoteNode(symbol))
-        )))
-    end
-end
-
-struct Method
-    name
-    parameters
+    qualifier
     body
     native_function
 end
 
-(f::Method)(x...) = f.native_function(x...)
+struct Generic
+    name
+    parameters
+    qualifier
+    methods
+end     
 
-# todo take care of optional symbol
-macro defmethod(form)
-        #= if symbol != :before && symbol != :primary && symbol != :after
+(f::Generic)(x...) = f.name(x...)
+
+macro defgeneric(form, qualifier=:standard)
+    if qualifier != :standard && qualifier != :tuple
         # ? best exception to throw
-        throw(ArgumentError("Symbol must be \"before\", \"primary\" or \"after\""))
-    end =#
-    let name = form.args[1].args[1],
-        parameters = form.args[1].args[2:end],
-        body = form.args[2]
-    esc(:($(name) =
-        Method(
-            $(QuoteNode(name)),
-            $((parameters...,)),
-            $(QuoteNode(body)),
-            ($(parameters...),) -> $body
+        throw(ArgumentError("qualifier must be \"standard\" or \"tuple\""))
+    end
+    let name = form.args[1],
+        parameters = form.args[2:end],
+        qualifier = qualifier
+        esc(:($(name) = 
+            Generic(
+                $(QuoteNode(name)),
+                $((parameters...,)),
+                $(QuoteNode(qualifier)),
+                SpecificMethod[]
         )))
     end
 end
 
-@defgeneric add(x, y)
+macro defmethod(form)
+    :@defmethod primary $form
+end
 
-@defmethod add(x::Int, y::Int) = x + y
+macro defmethod(qualifier, form)
+    if qualifier != :before && qualifier != :primary && qualifier != :after
+        # ? best exception to throw
+        throw(ArgumentError("qualifier must be \"before\", \"primary\" or \"after\""))
+    end
+    let name = form.args[1].args[1],
+        parameters = form.args[1].args[2:end],
+        body = form.args[2],
+        qualifier=qualifier
+    esc(:(push!($(name).methods, 
+        SpecificMethod(
+            $(QuoteNode(name)),
+            $((parameters...,)),
+            $(QuoteNode(qualifier)),
+            $(QuoteNode(body)),
+            ($(parameters...),) -> $body
+        ))))
+    end
+end
