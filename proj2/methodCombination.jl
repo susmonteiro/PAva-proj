@@ -13,7 +13,15 @@ struct Generic
     methods
 end     
 
-(f::Generic)(x...) = f.name(x...)
+(f::Generic)(args...) = combineMethods(f, args...)
+
+function combineMethods(genericMethod::Generic, arguments...)
+    for method in genericMethod.methods
+        if applicable(method.native_function, arguments...)
+            println(method.native_function(arguments...))
+        end
+    end
+end
 
 macro defgeneric(form, qualifier=:standard)
     if qualifier != :standard && qualifier != :tuple
@@ -46,7 +54,7 @@ macro defmethod(qualifier, form)
         parameters = form.args[1].args[2:end],
         body = form.args[2],
         qualifier=qualifier
-    esc(:(push!($(name).methods, 
+    esc(:(push!($(name).methods,
         SpecificMethod(
             $(QuoteNode(name)),
             $((parameters...,)),
