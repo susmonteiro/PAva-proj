@@ -27,7 +27,8 @@ Display a markdown table of the values in our global environment and their respe
 > varinfo()
 ```
 
-From class, don't use `eval()` -> creates more problems than it solves
+From class, don't use `eval()` -> creates more problems than it solves.
+Likewise, don't use STRINGs -> "you will fail miserily" :)
 
 Look at the CLOS slides -> introspectable functions
 All of the details are there

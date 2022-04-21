@@ -9,18 +9,16 @@ struct SpecificMethod
     name::Symbol                # name of the specific method
     parameters::Tuple           # tuple of parameter types of the specific method
     qualifier::Symbol           # qualifier of the specific method (primary, before, after)
-    nativeMethod                # anonymous function that executes the specific method
+    nativeFunction                # anonymous function that executes the specific method
 end
-
-
-struct GenericMethod
+struct GenericFunction
     name::Symbol                    # name of the generic method
     parameters::Tuple               # parameter types of the generic method
     qualifier::Symbol               # qualifier of the generic method (standard, tuple)
     methods::Set{SpecificMethod}    # set with all of the generic's specific methods
 end
 
-(genericMethod::GenericMethod)(args...) = combineMethods(genericMethod, args...)
+(genericFunction::GenericFunction)(args...) = combineMethods(genericFunction, args...)
 
 
 
@@ -28,7 +26,7 @@ end
 
 function validateCombineQualifier(qualifier)
     if !(typeof(qualifier) <: Symbol && qualifier in [:standard, :tuple])
-        throw(ArgumentError("GenericMethod qualifier must be \":standard\" or \":tuple\"!"))
+        throw(ArgumentError("GenericFunction qualifier must be \":standard\" or \":tuple\"!"))
     end
 end
 
@@ -42,7 +40,7 @@ function isMethodFormValid(form)::Bool
     return hasproperty(form, :args) && length(form.args) >= 1
 end
     
-function validateGenericMethodForm(form)
+function validateGenericFunctionForm(form)
     if !(isMethodFormValid(form) && !hasproperty(form.args[1], :args))
         throw(ArgumentError("Generic method form must be a valid generic method declaration without return type!"))
     end
@@ -57,7 +55,7 @@ end
 function validateGeneric(name::Symbol, parameters::Vector)
     try
         let generic = eval(name)
-            if !(typeof(generic) <: GenericMethod && length(generic.parameters) == length(parameters))
+            if !(typeof(generic) <: GenericFunction && length(generic.parameters) == length(parameters))
                 throw(ArgumentError(""))
             end
         end
@@ -71,10 +69,10 @@ end
 # Macro to define a generic method
 macro defgeneric(form, qualifier=:standard)
     validateCombineQualifier(qualifier)
-    validateGenericMethodForm(form)
+    validateGenericFunctionForm(form)
     let name = form.args[1],
         parameters = form.args[2:end]
-        esc(:($(name) = GenericMethod(
+        esc(:($(name) = GenericFunction(
             $(QuoteNode(name)),
             $((parameters...,)),
             $(QuoteNode(qualifier)),
@@ -109,39 +107,39 @@ end
 
 
 # todo should be done with multiple dispatch instead (standard, tuple, etc should be objects)
-function combineMethods(genericMethod::GenericMethod, arguments...)
-    if genericMethod.qualifier == :standard
-        standardCombination(genericMethod, arguments...)
+function combineMethods(genericFunction::GenericFunction, arguments...)
+    if genericFunction.qualifier == :standard
+        standardCombination(genericFunction, arguments...)
     else
-        tupleCombination(genericMethod, arguments...)
+        tupleCombination(genericFunction, arguments...)
     end
 end
 
 
 
-function no_applicable_method(f::GenericMethod, args...)
+function no_applicable_method(f::GenericFunction, args...)
     # todo print types like (x,y) instead of Tuple{x,y}
     error("No applicable method for arguments $args of types $(typeof(args))")
 end
 
 
-function standardCombination(genericMethod::GenericMethod, arguments...)
-    applicable_methods_before = getApplicableMethods(genericMethod.methods, :before, arguments...)
+function standardCombination(genericFunction::GenericFunction, arguments...)
+    applicable_methods_before = getApplicableMethods(genericFunction.methods, :before, arguments...)
     callApplicableMethods(applicable_methods_before, arguments...)
 
-    applicable_methods = getApplicableMethods(genericMethod.methods, :primary, arguments...)
+    applicable_methods = getApplicableMethods(genericFunction.methods, :primary, arguments...)
     if isempty(applicable_methods)
-        no_applicable_method(genericMethod, arguments...)
+        no_applicable_method(genericFunction, arguments...)
     else
         # todo call the most specific instead of the first one
-        first(applicable_methods).nativeMethod(arguments...)
+        first(applicable_methods).nativeFunction(arguments...)
     end
 
-    applicable_methods_after = getApplicableMethods(genericMethod.methods, :after, arguments...)
+    applicable_methods_after = getApplicableMethods(genericFunction.methods, :after, arguments...)
     callApplicableMethods(applicable_methods_after, arguments...)
 end
 
-function tupleCombination(genericMethod::GenericMethod, arguments...)
+function tupleCombination(genericFunction::GenericFunction, arguments...)
     # todo
 end
 
@@ -149,7 +147,7 @@ end
 function getApplicableMethods(methods, qualifier, arguments...)
     applicable_methods = []
     for method in methods
-        if method.qualifier == qualifier && applicable(method.nativeMethod, arguments...)
+        if method.qualifier == qualifier && applicable(method.nativeFunction, arguments...)
             push!(applicable_methods, method)
         end
     end
@@ -158,7 +156,7 @@ end
 
 function callApplicableMethods(methods, arguments...)
     for method in methods
-        method.nativeMethod(arguments...)
+        method.nativeFunction(arguments...)
     end
 end
 
@@ -176,8 +174,6 @@ end
 @defmethod explain(entity::Rational) = print("$entity is a Rational")
 
 @defmethod explain(entity::String) = print("$entity is a String")
-
-@defmethod explain(entity::Number) = print(" and a Number")
 
 @defmethod after explain(entity::Int) = print(" (in binary, is $(string(entity, base=2)))")
 
