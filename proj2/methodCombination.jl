@@ -81,7 +81,7 @@ macro defgeneric(form, qualifier=:standard)
         esc(:($(name) = GenericFunction(
             $(QuoteNode(name)),
             $((parameters...,)),
-            $(QuoteNode(getCombineQualifier(qualifier))),
+            $(getCombineQualifier(qualifier)),
             Set{SpecificMethod}()
         )))
     end
@@ -95,11 +95,16 @@ macro defmethod(qualifier, form)
     let name = form.args[1].args[1],
         parameters = form.args[1].args[2:end],
         body = form.args[2]
+
+        for p in parameters
+        println(eval(p.args[2]))
+        end
+
         validateGeneric(name, parameters)
         esc(:(push!($(name).methods, SpecificMethod(
             $(QuoteNode(name)),
-            $((parameters...,)),
-            $(QuoteNode(getMethodQualifier(qualifier))),
+            $(parameters...,),
+            $(getMethodQualifier(qualifier)),
             ($(parameters...),) -> $body
         ))))
     end
@@ -111,7 +116,6 @@ end
 
 
 
-# todo should be done with multiple dispatch instead (standard, tuple, etc should be objects)
 function combineMethods(genericFunction::GenericFunction, qualifier::StandardQualifier, arguments...)
     executeMethods(genericFunction.methods, BeforeQualifier(), arguments...)
     executeMethods(genericFunction.methods, PrimaryQualifier(), arguments...)
@@ -139,8 +143,8 @@ function executeMethods(methods, qualifier::BeforeQualifier, arguments...)
             push!(applicable_methods, method)
         end
     end
-    # sort(applicable_methods)
-    callApplicableMethods(applicable_methods, arguments...)
+    sorted_methods = sortMethods(applicable_methods)
+    callApplicableMethods(sorted_methods, arguments...)
 end
 
 function executeMethods(methods, qualifier::PrimaryQualifier, arguments...) 
@@ -150,11 +154,11 @@ function executeMethods(methods, qualifier::PrimaryQualifier, arguments...)
             push!(applicable_methods, method)
         end
     end
-    # sort(applicable_methods)
-    if isempty(applicable_methods)
+    sorted_methods = sortMethods(applicable_methods)    
+    if isempty(sorted_methods)
         no_applicable_method(genericFunction, arguments...)
     else
-        first(applicable_methods).nativeFunction(arguments...)
+        first(sorted_methods).nativeFunction(arguments...)
     end
 end
 
@@ -165,11 +169,11 @@ function executeMethods(methods, qualifier::AfterQualifier, arguments...)
             push!(applicable_methods, method)
         end
     end
-    # sort(applicable_methods) in reverse order
-    callApplicableMethods(applicable_methods, arguments...)
+    sorted_methods = sortMethods(applicable_methods, true)
+
+    callApplicableMethods(sorted_methods, arguments...)
 end
 
-# todo probably we should have 3 functions, each for the corresponding qualifier and then call them using multiple dispatch
 function getApplicableMethods(methods, qualifier, arguments...)
     applicable_methods = []
     for method in methods
@@ -187,10 +191,21 @@ function callApplicableMethods(methods, arguments...)
 end
 
 function sortMethods(methods, reverse = false)
-    # ! not working but close (maybe)
-    sort(methods, by = x -> x.parameters, lt = (x,y) -> x <: y, rev = reverse)
+    sort(methods, by = x -> x.parameters, lt = (x,y) -> sortFunction(x, y), rev = reverse)
 end
 
+function sortFunction(A, B)
+    for (a, b) in zip(A, B)
+        typeA = eval(a.args[2])
+        typeB = eval(b.args[2])
+        if (typeA == typeB) 
+            println("Types are the same")
+            continue
+        else
+            return (typeA <: typeB)
+        end
+    end
+end
 
 # todo remove this
 @defgeneric explain(entity)
@@ -201,6 +216,12 @@ end
 
 @defmethod explain(entity::String) = print("$entity is a String")
 
+@defmethod after explain(entity::Number) = print(". This one is less specific.")
+
 @defmethod after explain(entity::Int) = print(" (in binary, is $(string(entity, base=2)))")
 
 @defmethod before explain(entity::Real) = print("The number ")
+
+@defmethod before explain(entity::Int) = print("Most specific first! ")
+
+@defmethod explain(entity::Number) = print(" and a Number ")
