@@ -87,19 +87,12 @@ macro defgeneric(form, qualifier=:standard)
     end
 end
 
-
-
 # Macro to define a specific method
 macro defmethod(qualifier, form)
     validateSpecificMethodForm(form)
     let name = form.args[1].args[1],
         parameters = form.args[1].args[2:end],
         body = form.args[2]
-
-        for p in parameters
-        println(eval(p.args[2]))
-        end
-
         validateGeneric(name, parameters)
         esc(:(push!($(name).methods, SpecificMethod(
             $(QuoteNode(name)),
@@ -137,23 +130,13 @@ end
 
 # todo change name
 function executeMethods(methods, qualifier::BeforeQualifier, arguments...) 
-    applicable_methods = []
-    for method in methods
-        if method.qualifier == qualifier && applicable(method.nativeFunction, arguments...)
-            push!(applicable_methods, method)
-        end
-    end
+    applicable_methods = getApplicableMethods(methods, qualifier, arguments...)
     sorted_methods = sortMethods(applicable_methods)
     callApplicableMethods(sorted_methods, arguments...)
 end
 
 function executeMethods(methods, qualifier::PrimaryQualifier, arguments...) 
-    applicable_methods = []
-    for method in methods
-        if method.qualifier == qualifier && applicable(method.nativeFunction, arguments...)
-            push!(applicable_methods, method)
-        end
-    end
+    applicable_methods = getApplicableMethods(methods, qualifier, arguments...)
     sorted_methods = sortMethods(applicable_methods)    
     if isempty(sorted_methods)
         no_applicable_method(genericFunction, arguments...)
@@ -163,14 +146,8 @@ function executeMethods(methods, qualifier::PrimaryQualifier, arguments...)
 end
 
 function executeMethods(methods, qualifier::AfterQualifier, arguments...) 
-    applicable_methods = []
-    for method in methods
-        if method.qualifier == qualifier && applicable(method.nativeFunction, arguments...)
-            push!(applicable_methods, method)
-        end
-    end
+    applicable_methods = getApplicableMethods(methods, qualifier, arguments...)
     sorted_methods = sortMethods(applicable_methods, true)
-
     callApplicableMethods(sorted_methods, arguments...)
 end
 
