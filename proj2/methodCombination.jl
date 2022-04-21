@@ -134,7 +134,7 @@ function standardCombination(genericMethod::GenericMethod, arguments...)
         no_applicable_method(genericMethod, arguments...)
     else
         # todo call the most specific instead of the first one
-        first(applicable_methods).native_function(arguments...)
+        first(applicable_methods).nativeMethod(arguments...)
     end
 
     applicable_methods_after = getApplicableMethods(genericMethod.methods, :after, arguments...)
@@ -149,7 +149,7 @@ end
 function getApplicableMethods(methods, qualifier, arguments...)
     applicable_methods = []
     for method in methods
-        if method.qualifier == qualifier && applicable(method.native_function, arguments...)
+        if method.qualifier == qualifier && applicable(method.nativeMethod, arguments...)
             push!(applicable_methods, method)
         end
     end
@@ -158,7 +158,7 @@ end
 
 function callApplicableMethods(methods, arguments...)
     for method in methods
-        method.native_function(arguments...)
+        method.nativeMethod(arguments...)
     end
 end
 
@@ -166,21 +166,6 @@ function sortMethods(methods, reverse = false)
     # ! not working but close (maybe)
     sort(methods, by = x -> x.parameters, lt = (x,y) -> x <: y, rev = reverse)
 end
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # todo remove this

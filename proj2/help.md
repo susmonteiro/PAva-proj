@@ -23,4 +23,11 @@ false
 
 Display a markdown table of the values in our global environment and their respective memory usage:
 
-```> varinfo()```
+```
+> varinfo()
+```
+
+From class, don't use `eval()` -> creates more problems than it solves
+
+Look at the CLOS slides -> introspectable functions
+All of the details are there
