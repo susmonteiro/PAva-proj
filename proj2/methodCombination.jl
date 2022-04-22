@@ -54,7 +54,7 @@ function getMethodParameterTypes(generic, parameters::Vector{Any})
     if generic.nParameters != length(parameters)
         throw(ArgumentError("The existent generic function does not match the number of arguments of the specific method"))
     end
-    Tuple(map(p -> p.args[2], parameters))
+    Tuple(map(p -> hasproperty(p, :args) && length(p.args) >= 1 ? p.args[2] : :Any, parameters))
 end
 
 @inline function isMethodFormValid(form)::Bool
@@ -75,7 +75,7 @@ end
 
 
 
-# Macro to define a generic method
+# Macro to define a generic function
 macro defgeneric(form, qualifier=:standard)
     validateGenericFunctionForm(form)
     let name = form.args[1],
@@ -184,6 +184,10 @@ function sortFunction(A, B)
         end
     end
 end
+
+
+
+
 
 # todo remove this
 # @defgeneric explain(entity)
