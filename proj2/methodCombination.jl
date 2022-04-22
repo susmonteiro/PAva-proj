@@ -58,10 +58,7 @@ function getMethodQualifier(qualifier)
     end        
 end
 
-function getMethodParameterTypes(generic::GenericFunction, parameters::Vector{Any})
-    if generic.nParameters != length(parameters)
-        throw(ArgumentError("The existent generic function does not match the number of arguments of the specific method"))
-    end
+@inline function getMethodParameterSignature(parameters::Vector{Any})
     Tuple(map(p -> hasproperty(p, :args) && length(p.args) >= 1 ? p.args[2] : :Any, parameters))
 end
 
@@ -78,6 +75,15 @@ end
 function validateSpecificMethodForm(form)
     if !(isMethodFormValid(form) && isMethodFormValid(form.args[1]) && isMethodFormValid(form.args[2]))
         throw(ArgumentError("Specific method form must be a valid specific method declaration with a body and without return type!"))
+    end
+end
+
+function createSpecificMethod(generic::GenericFunction, name::Symbol, qualifier::MethodQualifier, nativeFunction)
+    let parameters = fieldtypes(methods(nativeFunction).ms[1].sig)[2:end]
+        if generic.nParameters != length(parameters)
+            throw(ArgumentError("The existent generic function does not match the number of arguments of the specific method"))
+        end
+        SpecificMethod(name, parameters, qualifier, nativeFunction)
     end
 end
 
@@ -105,10 +111,10 @@ macro defmethod(qualifier, form)
         body = form.args[2]
         esc(:(
             let name = $(QuoteNode(name)),
-                parameterTypes = getMethodParameterTypes($(name), $(parameters))
+                parameterSignature = getMethodParameterSignature($(parameters)),
                 qualifier = $(getMethodQualifier(qualifier))
-                let signature = String(name) * "$parameterTypes\$" * toString(qualifier),
-                    specificMethod = SpecificMethod(name, parameterTypes, qualifier, ($(parameters...),) -> $body)
+                let signature = String(name) * "$parameterSignature[$(toString(qualifier))]"
+                    specificMethod = createSpecificMethod($(name), name, qualifier, ($(parameters...),) -> $body)
                     setindex!($(name).methods, specificMethod, signature)
                 end
             end
@@ -122,12 +128,14 @@ end
 
 
 
+# Main method responsable for combining standard methods
 function combineMethods(genericFunction::GenericFunction, qualifier::StandardQualifier, arguments...)
     executeMethods(genericFunction.methods, BeforeQualifier(), arguments...)
     executeMethods(genericFunction.methods, PrimaryQualifier(), arguments...)
     executeMethods(genericFunction.methods, AfterQualifier(), arguments...)
 end
 
+# Main method responsable for combining tuple methods
 function combineMethods(genericFunction::GenericFunction, qualifier::TupleQualifier, arguments...)
     println("This is a Tuple combination")
     # todo
