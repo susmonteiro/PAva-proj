@@ -28,13 +28,12 @@ struct SpecificMethod
     name::Symbol                # name of the specific method
     parameters::Tuple           # tuple containing the types of the parameters of the specific method
     qualifier::MethodQualifier  # qualifier of the specific method (primary, before, after)
-    body
     nativeFunction              # anonymous function that executes the specific method
 end
 
 struct GenericFunction
     name::Symbol                            # name of the generic method
-    nParameters::Int                        # number of parameters of the generic function
+    parameters::Tuple                       # parameters of the generic function
     qualifier::CombineQualifier             # qualifier of the generic method (standard, tuple)
     methods::Dict{String, SpecificMethod}   # set with all of the generic's specific methods
 end
@@ -79,12 +78,12 @@ function validateSpecificMethodForm(form)
     end
 end
 
-function createSpecificMethod(generic::GenericFunction, name::Symbol, qualifier::MethodQualifier, body, nativeFunction)
+function createSpecificMethod(generic::GenericFunction, name::Symbol, qualifier::MethodQualifier, nativeFunction)
     let parameters = fieldtypes(methods(nativeFunction).ms[1].sig)[2:end]
-        if generic.nParameters != length(parameters)
+        if length(generic.parameters) != length(parameters)
             throw(ArgumentError("The existent generic function does not match the number of arguments of the specific method"))
         end
-        SpecificMethod(name, parameters, qualifier, body, nativeFunction)
+        SpecificMethod(name, parameters, qualifier, nativeFunction)
     end
 end
 
@@ -94,10 +93,10 @@ end
 macro defgeneric(form, qualifier=:standard)
     validateGenericFunctionForm(form)
     let name = form.args[1],
-        nParameters = length(form.args[2:end])
+        parameters = form.args[2:end]
         esc(:($(name) = GenericFunction(
             $(QuoteNode(name)),
-            $(nParameters),
+            $((parameters...,)),
             $(getCombineQualifier(qualifier)),
             Dict{String, SpecificMethod}()
         )))
@@ -113,10 +112,9 @@ macro defmethod(qualifier, form)
         esc(:(
             let name = $(QuoteNode(name)),
                 parameterSignature = getMethodParameterSignature($(parameters)),
-                qualifier = $(getMethodQualifier(qualifier)),
-                body = $(QuoteNode(body))
+                qualifier = $(getMethodQualifier(qualifier))
                 let signature = String(name) * "$parameterSignature[$(toString(qualifier))]"
-                    specificMethod = createSpecificMethod($(name), name, qualifier, body, ($(parameters...),) -> $body)
+                    specificMethod = createSpecificMethod($(name), name, qualifier, ($(parameters...),) -> $body)
                     setindex!($(name).methods, specificMethod, signature)
                 end
             end
@@ -136,8 +134,8 @@ function combineMethods(genericFunction::GenericFunction, qualifier::StandardQua
     append!(methods, executeMethods(genericFunction.methods, BeforeQualifier(), arguments...))
     append!(methods, executeMethods(genericFunction.methods, PrimaryQualifier(), arguments...))
     append!(methods, executeMethods(genericFunction.methods, AfterQualifier(), arguments...))
-    #generateEffectiveMethod(genericFunction, methods)
-    println("\nDone :)")
+    effective_method = generateEffectiveMethod(genericFunction, methods)
+    effective_method(arguments...)
 end
 
 # Main method responsible for combining tuple methods
@@ -164,8 +162,6 @@ function executeMethods(methods, qualifier::PrimaryQualifier, arguments...)
     sorted_methods = sortMethods(applicable_methods)    
     if isempty(sorted_methods)
         no_applicable_method(genericFunction, arguments...)
-    else
-        first(sorted_methods).nativeFunction(arguments...)
     end
     return [first(sorted_methods)]
 end
@@ -192,24 +188,15 @@ function callApplicableMethods(methods, arguments...)
 end
 
 # ! not working as it should yet
-function generateEffectiveMethod(gf::GenericFunction, methods)
-    # effective_method = :(($(gf.parameters...),) ->
-    #     $(first(methods).nativeFunction)($(gf.parameters...)))
-    # println("\n\nEffective Method: \n$effective_method")
-    # effective_method(2)
-    parameters = []
-    for p in gf.parameters
-        push!(parameters, p)
+function generateEffectiveMethod(gf::GenericFunction, methods)    
+    parameters = map(p -> p, gf.parameters)
+
+    effective_method = (parameters) -> begin
+        applicable_methods = methods
+        for m in applicable_methods
+            m.nativeFunction(parameters)
+        end
     end
-    println(parameters)
-
-    # this is the code we want to generate
-    effective_method = (parameters) -> 
-        :($(for m in methods
-            :(m.nativeFunction(parameters))
-        end))
-
-    effective_method(2)
 end
 
 function sortMethods(methods, reverse = false)
