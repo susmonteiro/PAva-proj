@@ -34,7 +34,7 @@ struct GenericFunction
     name::Symbol                                    # name of the generic method
     parameters::Tuple                               # parameters of the generic function
     qualifier::CombineQualifier                     # qualifier of the generic method (standard, tuple)
-    methods::Dict{String, SpecificMethod}           # set with all of the generic's specific methods
+    methods::Dict{Symbol, SpecificMethod}           # set with all of the generic's specific methods
     effective_methods::Dict{Symbol, Any}            # set with all of the effective methods already generated
 end
 
@@ -113,9 +113,10 @@ macro defmethod(qualifier, form)
         esc(:(
             let name = $(QuoteNode(name)),
                 parameterSignature = getMethodParameterSignature($(parameters)),
-                qualifier = $(getMethodQualifier(qualifier))
-                let signature = String(name) * "$parameterSignature[$(toString(qualifier))]"
-                    specificMethod = createSpecificMethod($(name), name, qualifier, ($(parameters...),) -> $body)
+                qualifierObj = $(getMethodQualifier(qualifier)),
+                qualifier = $(QuoteNode(qualifier))
+                let signature = Symbol(name, parameterSignature, :([$qualifier]))
+                    specificMethod = createSpecificMethod($(name), name, qualifierObj, ($(parameters...),) -> $body)
                     setindex!($(name).methods, specificMethod, signature)
                 end
             end
@@ -131,11 +132,11 @@ end
 
 # Main method responsible for combining standard methods
 function combineMethods(genericFunction::GenericFunction, qualifier::StandardQualifier, arguments...)
-    let signature = Symbol(map(p -> typeof(p), arguments)),
+    let signature = Symbol(map(p -> Symbol(typeof(p)), arguments)),
         effective_method = get(genericFunction.effective_methods, signature) do
-            let before_methods = executeMethods(genericFunction.methods, BeforeQualifier(), arguments...),
-                primary_method = executeMethods(genericFunction, genericFunction.methods, PrimaryQualifier(), arguments...),
-                after_methods = executeMethods(genericFunction.methods, AfterQualifier(), arguments...)
+            let before_methods = findMethods(genericFunction.methods, BeforeQualifier(), arguments...),
+                primary_method = findMethods(genericFunction, genericFunction.methods, PrimaryQualifier(), arguments...),
+                after_methods = findMethods(genericFunction.methods, AfterQualifier(), arguments...)
                 generateEffectiveMethod(genericFunction, before_methods, primary_method, after_methods, signature)
             end
         end
@@ -156,12 +157,12 @@ function no_applicable_method(f::GenericFunction, args...)
     error("No applicable method $(f.name) for arguments $args of types $(map(arg -> typeof(arg), args))")
 end
 
-function executeMethods(methods, qualifier::BeforeQualifier, arguments...) 
+function findMethods(methods, qualifier::BeforeQualifier, arguments...) 
     applicable_methods = getApplicableMethods(methods, qualifier, arguments...)
     sortMethods(applicable_methods)
 end
 
-function executeMethods(genericFunction::GenericFunction, methods, qualifier::PrimaryQualifier, arguments...) 
+function findMethods(genericFunction::GenericFunction, methods, qualifier::PrimaryQualifier, arguments...) 
     applicable_methods = getApplicableMethods(methods, qualifier, arguments...)
     sorted_methods = sortMethods(applicable_methods)
     isempty(sorted_methods) ?
@@ -169,19 +170,13 @@ function executeMethods(genericFunction::GenericFunction, methods, qualifier::Pr
         first(sorted_methods)
 end
 
-function executeMethods(methods, qualifier::AfterQualifier, arguments...) 
+function findMethods(methods, qualifier::AfterQualifier, arguments...) 
     applicable_methods = getApplicableMethods(methods, qualifier, arguments...)
     sortMethods(applicable_methods, true)
 end
 
 function getApplicableMethods(methods, qualifier, arguments...)
     filter(m -> m.qualifier == qualifier && applicable(m.nativeFunction, arguments...), collect(values(methods)))
-end
-
-function callApplicableMethods(methods, arguments...)
-    for method in methods
-        method.nativeFunction(arguments...)
-    end
 end
 
 function generateEffectiveMethod(gf::GenericFunction, before_methods, primary_method, after_methods, signature) 
