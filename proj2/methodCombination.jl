@@ -14,6 +14,7 @@ struct SpecificMethod
     name::Symbol                # name of the specific method
     parameters::Tuple           # tuple of parameter types of the specific method
     qualifier                   # qualifier of the specific method (primary, before, after)
+    body
     nativeFunction              # anonymous function that executes the specific method
 end
 struct GenericFunction
@@ -98,6 +99,7 @@ macro defmethod(qualifier, form)
             $(QuoteNode(name)),
             $(parameters...,),
             $(getMethodQualifier(qualifier)),
+            $(QuoteNode(body)),
             ($(parameters...),) -> $body
         ))))
     end
@@ -110,9 +112,12 @@ end
 
 
 function combineMethods(genericFunction::GenericFunction, qualifier::StandardQualifier, arguments...)
-    executeMethods(genericFunction.methods, BeforeQualifier(), arguments...)
-    executeMethods(genericFunction.methods, PrimaryQualifier(), arguments...)
-    executeMethods(genericFunction.methods, AfterQualifier(), arguments...)
+    methods = []
+    append!(methods, executeMethods(genericFunction.methods, BeforeQualifier(), arguments...))
+    append!(methods, executeMethods(genericFunction.methods, PrimaryQualifier(), arguments...))
+    append!(methods, executeMethods(genericFunction.methods, AfterQualifier(), arguments...))
+    #generateEffectiveMethod(genericFunction, methods)
+    println("\nDone :)")
 end
 
 function combineMethods(genericFunction::GenericFunction, qualifier::TupleQualifier, arguments...)
@@ -131,8 +136,7 @@ end
 # todo change name
 function executeMethods(methods, qualifier::BeforeQualifier, arguments...) 
     applicable_methods = getApplicableMethods(methods, qualifier, arguments...)
-    sorted_methods = sortMethods(applicable_methods)
-    callApplicableMethods(sorted_methods, arguments...)
+    sortMethods(applicable_methods)
 end
 
 function executeMethods(methods, qualifier::PrimaryQualifier, arguments...) 
@@ -143,12 +147,12 @@ function executeMethods(methods, qualifier::PrimaryQualifier, arguments...)
     else
         first(sorted_methods).nativeFunction(arguments...)
     end
+    return [first(sorted_methods)]
 end
 
 function executeMethods(methods, qualifier::AfterQualifier, arguments...) 
     applicable_methods = getApplicableMethods(methods, qualifier, arguments...)
-    sorted_methods = sortMethods(applicable_methods, true)
-    callApplicableMethods(sorted_methods, arguments...)
+    sortMethods(applicable_methods, true)
 end
 
 function getApplicableMethods(methods, qualifier, arguments...)
@@ -165,6 +169,27 @@ function callApplicableMethods(methods, arguments...)
     for method in methods
         method.nativeFunction(arguments...)
     end
+end
+
+# ! not working as it should yet
+function generateEffectiveMethod(gf::GenericFunction, methods)
+    # effective_method = :(($(gf.parameters...),) ->
+    #     $(first(methods).nativeFunction)($(gf.parameters...)))
+    # println("\n\nEffective Method: \n$effective_method")
+    # effective_method(2)
+    parameters = []
+    for p in gf.parameters
+        push!(parameters, p)
+    end
+    println(parameters)
+
+    # this is the code we want to generate
+    effective_method = (parameters) -> 
+        :($(for m in methods
+            :(m.nativeFunction(parameters))
+        end))
+
+    effective_method(2)
 end
 
 function sortMethods(methods, reverse = false)
@@ -202,3 +227,6 @@ end
 @defmethod before explain(entity::Int) = print("Most specific first! ")
 
 @defmethod explain(entity::Number) = print(" and a Number ")
+
+# todo take care of args with no explicit type
+# @defmethod explain(entity) = print("No type name")
