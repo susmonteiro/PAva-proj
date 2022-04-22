@@ -139,7 +139,7 @@ function combineMethods(genericFunction::GenericFunction, qualifier::StandardQua
             println("> Signature: $signature")
             let methods=[]
                 append!(methods, executeMethods(genericFunction.methods, BeforeQualifier(), arguments...))
-                append!(methods, executeMethods(genericFunction, genericFunction.methods, PrimaryQualifier(), arguments...))
+                push!(methods, executeMethods(genericFunction, genericFunction.methods, PrimaryQualifier(), arguments...))
                 append!(methods, executeMethods(genericFunction.methods, AfterQualifier(), arguments...))
                 generateEffectiveMethod(genericFunction, methods, signature)
             end
@@ -168,11 +168,10 @@ end
 
 function executeMethods(genericFunction::GenericFunction, methods, qualifier::PrimaryQualifier, arguments...) 
     applicable_methods = getApplicableMethods(methods, qualifier, arguments...)
-    sorted_methods = sortMethods(applicable_methods)    
-    if isempty(sorted_methods)
-        no_applicable_method(genericFunction, arguments...)
-    end
-    return [first(sorted_methods)]
+    sorted_methods = sortMethods(applicable_methods)
+    isempty(sorted_methods) ?
+        no_applicable_method(genericFunction, arguments...) :
+        first(sorted_methods)
 end
 
 function executeMethods(methods, qualifier::AfterQualifier, arguments...) 
@@ -181,13 +180,7 @@ function executeMethods(methods, qualifier::AfterQualifier, arguments...)
 end
 
 function getApplicableMethods(methods, qualifier, arguments...)
-    applicable_methods = []
-    for method in values(methods)
-        if method.qualifier == qualifier && applicable(method.nativeFunction, arguments...)
-            push!(applicable_methods, method)
-        end
-    end
-    return applicable_methods
+    filter(m -> m.qualifier == qualifier && applicable(m.nativeFunction, arguments...), collect(values(methods)))
 end
 
 function callApplicableMethods(methods, arguments...)
@@ -222,6 +215,3 @@ function sortFunction(A, B)
     end
 end
 
-@defgeneric explain(entity)
-
-@defmethod explain(entity::Int) = print("$entity is a Int")

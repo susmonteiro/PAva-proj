@@ -27,6 +27,12 @@
 # add methods
 @defgeneric add(x,y)
 
-@defmethod add(x::Int,y) = println("$x is an Int")
+@defmethod add(x::Int, y) = println("$x is an Int")
 
 @defmethod add(x, y::Int) = println("$y is an Int")
+
+@defmethod add(x::Int, y::Int) = println(x + y)
+
+@defmethod add(x::String, y::String) = println(x * y)
+
+@defmethod before add(x::Rational, y::Rational) = println("These are rationals")
