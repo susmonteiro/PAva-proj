@@ -132,6 +132,7 @@ end
 
 # Main method responsible for combining standard methods
 function combineMethods(genericFunction::GenericFunction, qualifier::StandardQualifier, arguments...)
+    println("Arguments: $(arguments...)")
     let signature = Symbol(map(p -> typeof(p), arguments)),
         effective_method = get(genericFunction.effective_methods, signature) do
             # todo remove me
@@ -196,11 +197,12 @@ function callApplicableMethods(methods, arguments...)
     end
 end
 
-function generateEffectiveMethod(gf::GenericFunction, methods, signature)    
+# todo fix for zero arguments
+# todo fix for multiple arguments
+function generateEffectiveMethod(gf::GenericFunction, methods, signature) 
     let parameters = map(p -> p, gf.parameters),
         effective_method = (parameters) -> begin
-            applicable_methods = methods
-            for m in applicable_methods
+            for m in methods
                 m.nativeFunction(parameters)
             end
         end
@@ -223,28 +225,8 @@ function sortFunction(A, B)
     end
 end
 
+@defgeneric noargs()
 
+@defmethod noargs() = println("I got no args yeah")
 
-
-
-# todo remove this
-@defgeneric explain(entity)
-
-@defmethod explain(entity::Int) = print("$entity is a Int")
-
-@defmethod explain(entity::Rational) = print("$entity is a Rational")
-
-@defmethod explain(entity::String) = print("$entity is a String")
-
-@defmethod after explain(entity::Number) = print(". This one is less specific.")
-
-@defmethod after explain(entity::Int) = print(" (in binary, is $(string(entity, base=2)))")
-
-@defmethod before explain(entity::Real) = print("The number ")
-
-@defmethod before explain(entity::Int) = print("Most specific first! ")
-
-@defmethod explain(entity::Number) = print(" and a Number ")
-
-# todo take care of args with no explicit type
-# @defmethod explain(entity) = print("No type name")
+noargs()
