@@ -140,9 +140,7 @@ function combineMethods(genericFunction::GenericFunction, qualifier::StandardQua
                 append!(methods, executeMethods(genericFunction.methods, BeforeQualifier(), arguments...))
                 append!(methods, executeMethods(genericFunction.methods, PrimaryQualifier(), arguments...))
                 append!(methods, executeMethods(genericFunction.methods, AfterQualifier(), arguments...))
-                effective_method = generateEffectiveMethod(genericFunction, methods)
-                setindex!(genericFunction.effective_methods, effective_method, signature)
-                return effective_method
+                generateEffectiveMethod(genericFunction, methods, signature)
             end
         end
         effective_method(arguments...)
@@ -198,15 +196,16 @@ function callApplicableMethods(methods, arguments...)
     end
 end
 
-# ! not working as it should yet
-function generateEffectiveMethod(gf::GenericFunction, methods)    
-    parameters = map(p -> p, gf.parameters)
-
-    (parameters) -> begin
-        applicable_methods = methods
-        for m in applicable_methods
-            m.nativeFunction(parameters)
+function generateEffectiveMethod(gf::GenericFunction, methods, signature)    
+    let parameters = map(p -> p, gf.parameters),
+        effective_method = (parameters) -> begin
+            applicable_methods = methods
+            for m in applicable_methods
+                m.nativeFunction(parameters)
+            end
         end
+        setindex!(gf.effective_methods, effective_method, signature)
+        return effective_method
     end
 end
 
