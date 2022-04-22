@@ -132,14 +132,14 @@ end
 
 # Main method responsible for combining standard methods
 function combineMethods(genericFunction::GenericFunction, qualifier::StandardQualifier, arguments...)
-    println("Arguments: $(arguments...)")
     let signature = Symbol(map(p -> typeof(p), arguments)),
         effective_method = get(genericFunction.effective_methods, signature) do
             # todo remove me
             println("Generating new method...")
+            println("> Signature: $signature")
             let methods=[]
                 append!(methods, executeMethods(genericFunction.methods, BeforeQualifier(), arguments...))
-                append!(methods, executeMethods(genericFunction.methods, PrimaryQualifier(), arguments...))
+                append!(methods, executeMethods(genericFunction, genericFunction.methods, PrimaryQualifier(), arguments...))
                 append!(methods, executeMethods(genericFunction.methods, AfterQualifier(), arguments...))
                 generateEffectiveMethod(genericFunction, methods, signature)
             end
@@ -167,7 +167,7 @@ function executeMethods(methods, qualifier::BeforeQualifier, arguments...)
     sortMethods(applicable_methods)
 end
 
-function executeMethods(methods, qualifier::PrimaryQualifier, arguments...) 
+function executeMethods(genericFunction::GenericFunction, methods, qualifier::PrimaryQualifier, arguments...) 
     applicable_methods = getApplicableMethods(methods, qualifier, arguments...)
     sorted_methods = sortMethods(applicable_methods)    
     if isempty(sorted_methods)
@@ -197,13 +197,11 @@ function callApplicableMethods(methods, arguments...)
     end
 end
 
-# todo fix for zero arguments
-# todo fix for multiple arguments
 function generateEffectiveMethod(gf::GenericFunction, methods, signature) 
     let parameters = map(p -> p, gf.parameters),
-        effective_method = (parameters) -> begin
+        effective_method = (parameters...) -> begin
             for m in methods
-                m.nativeFunction(parameters)
+                m.nativeFunction(parameters...)
             end
         end
         setindex!(gf.effective_methods, effective_method, signature)
@@ -225,8 +223,3 @@ function sortFunction(A, B)
     end
 end
 
-@defgeneric noargs()
-
-@defmethod noargs() = println("I got no args yeah")
-
-noargs()
