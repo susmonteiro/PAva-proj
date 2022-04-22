@@ -4,7 +4,6 @@
 # Susana Monteiro       92560       https://github.com/susmonteiro
 
 
-
 abstract type Qualifier end
 abstract type CombineQualifier <: Qualifier end
 abstract type MethodQualifier <: Qualifier end
@@ -32,11 +31,11 @@ struct SpecificMethod
 end
 
 struct GenericFunction
-    name::Symbol                            # name of the generic method
-    parameters::Tuple                       # parameters of the generic function
-    qualifier::CombineQualifier             # qualifier of the generic method (standard, tuple)
-    methods::Dict{String, SpecificMethod}   # set with all of the generic's specific methods
-    effective_methods::Dict{Symbol, Any}
+    name::Symbol                                    # name of the generic method
+    parameters::Tuple                               # parameters of the generic function
+    qualifier::CombineQualifier                     # qualifier of the generic method (standard, tuple)
+    methods::Dict{String, SpecificMethod}           # set with all of the generic's specific methods
+    effective_methods::Dict{Symbol, Any}            # set with all of the effective methods already generated
 end
 
 (genericFunction::GenericFunction)(args...) = combineMethods(genericFunction, genericFunction.qualifier, args...)
@@ -134,14 +133,10 @@ end
 function combineMethods(genericFunction::GenericFunction, qualifier::StandardQualifier, arguments...)
     let signature = Symbol(map(p -> typeof(p), arguments)),
         effective_method = get(genericFunction.effective_methods, signature) do
-            # todo remove me
-            println("Generating new method...")
-            println("> Signature: $signature")
-            let methods=[]
-                append!(methods, executeMethods(genericFunction.methods, BeforeQualifier(), arguments...))
-                push!(methods, executeMethods(genericFunction, genericFunction.methods, PrimaryQualifier(), arguments...))
-                append!(methods, executeMethods(genericFunction.methods, AfterQualifier(), arguments...))
-                generateEffectiveMethod(genericFunction, methods, signature)
+            let before_methods = executeMethods(genericFunction.methods, BeforeQualifier(), arguments...),
+                primary_method = executeMethods(genericFunction, genericFunction.methods, PrimaryQualifier(), arguments...),
+                after_methods = executeMethods(genericFunction.methods, AfterQualifier(), arguments...)
+                generateEffectiveMethod(genericFunction, before_methods, primary_method, after_methods, signature)
             end
         end
         effective_method(arguments...)
@@ -189,12 +184,15 @@ function callApplicableMethods(methods, arguments...)
     end
 end
 
-function generateEffectiveMethod(gf::GenericFunction, methods, signature) 
+function generateEffectiveMethod(gf::GenericFunction, before_methods, primary_method, after_methods, signature) 
     let parameters = map(p -> p, gf.parameters),
         effective_method = (parameters...) -> begin
-            for m in methods
-                m.nativeFunction(parameters...)
-            end
+            foreach(m -> m.nativeFunction(parameters...), before_methods)
+
+            return_value = primary_method.nativeFunction(parameters...)
+
+            foreach(m -> m.nativeFunction(parameters...), after_methods)
+            return return_value
         end
         setindex!(gf.effective_methods, effective_method, signature)
         return effective_method
@@ -214,4 +212,3 @@ function sortFunction(A, B)
         end
     end
 end
-

@@ -31,8 +31,8 @@
 
 @defmethod add(x, y::Int) = println("$y is an Int")
 
-@defmethod add(x::Int, y::Int) = println(x + y)
+@defmethod add(x::Int, y::Int) = x + y
 
-@defmethod add(x::String, y::String) = println(x * y)
+@defmethod add(x::String, y::String) = x * y
 
 @defmethod before add(x::Rational, y::Rational) = println("These are rationals")
