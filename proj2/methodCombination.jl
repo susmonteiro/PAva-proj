@@ -6,28 +6,36 @@
 
 
 abstract type Qualifier end
+abstract type CombineQualifier <: Qualifier end
+abstract type MethodQualifier <: Qualifier end
 
-struct StandardQualifier <: Qualifier end
-struct TupleQualifier <: Qualifier end
+struct StandardQualifier <: CombineQualifier end
+struct TupleQualifier <: CombineQualifier end
 
-struct BeforeQualifier <: Qualifier end
-struct PrimaryQualifier <: Qualifier end
-struct AfterQualifier <: Qualifier end
+struct BeforeQualifier <: MethodQualifier end
+struct PrimaryQualifier <: MethodQualifier end
+struct AfterQualifier <: MethodQualifier end
+
+@inline function toString(qualifier::StandardQualifier) "StandardQualifier" end
+@inline function toString(qualifier::TupleQualifier) "TupleQualifier" end
+@inline function toString(qualifier::BeforeQualifier) "BeforeQualifier" end
+@inline function toString(qualifier::PrimaryQualifier) "PrimaryQualifier" end
+@inline function toString(qualifier::AfterQualifier) "AfterQualifier" end
 
 
 
 struct SpecificMethod
     name::Symbol                # name of the specific method
     parameters::Tuple           # tuple containing the types of the parameters of the specific method
-    qualifier::Qualifier        # qualifier of the specific method (primary, before, after)
+    qualifier::MethodQualifier  # qualifier of the specific method (primary, before, after)
     nativeFunction              # anonymous function that executes the specific method
 end
 
 struct GenericFunction
-    name::Symbol                    # name of the generic method
-    nParameters::Int                # number of parameters of the generic function
-    qualifier::Qualifier            # qualifier of the generic method (standard, tuple)
-    methods::Set{SpecificMethod}    # set with all of the generic's specific methods
+    name::Symbol                            # name of the generic method
+    nParameters::Int                        # number of parameters of the generic function
+    qualifier::CombineQualifier             # qualifier of the generic method (standard, tuple)
+    methods::Dict{String, SpecificMethod}   # set with all of the generic's specific methods
 end
 
 (genericFunction::GenericFunction)(args...) = combineMethods(genericFunction, genericFunction.qualifier, args...)
@@ -50,14 +58,14 @@ function getMethodQualifier(qualifier)
     end        
 end
 
-function getMethodParameterTypes(generic, parameters::Vector{Any})
+function getMethodParameterTypes(generic::GenericFunction, parameters::Vector{Any})
     if generic.nParameters != length(parameters)
         throw(ArgumentError("The existent generic function does not match the number of arguments of the specific method"))
     end
     Tuple(map(p -> hasproperty(p, :args) && length(p.args) >= 1 ? p.args[2] : :Any, parameters))
 end
 
-@inline function isMethodFormValid(form)::Bool
+@inline function isMethodFormValid(form)
     hasproperty(form, :args) && length(form.args) >= 1
 end
     
@@ -84,7 +92,7 @@ macro defgeneric(form, qualifier=:standard)
             $(QuoteNode(name)),
             $(nParameters),
             $(getCombineQualifier(qualifier)),
-            Set{SpecificMethod}()
+            Dict{String, SpecificMethod}()
         )))
     end
 end
@@ -95,12 +103,16 @@ macro defmethod(qualifier, form)
     let name = form.args[1].args[1],
         parameters = form.args[1].args[2:end],
         body = form.args[2]
-        esc(:(push!($(name).methods, SpecificMethod(
-            $(QuoteNode(name)),
-            getMethodParameterTypes($(name), $(parameters)),
-            $(getMethodQualifier(qualifier)),
-            ($(parameters...),) -> $body
-        ))))
+        esc(:(
+            let name = $(QuoteNode(name)),
+                parameterTypes = getMethodParameterTypes($(name), $(parameters))
+                qualifier = $(getMethodQualifier(qualifier))
+                let signature = String(name) * "$parameterTypes\$" * toString(qualifier),
+                    specificMethod = SpecificMethod(name, parameterTypes, qualifier, ($(parameters...),) -> $body)
+                    setindex!($(name).methods, specificMethod, signature)
+                end
+            end
+        ))
     end
 end
 
