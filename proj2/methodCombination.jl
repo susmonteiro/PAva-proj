@@ -3,25 +3,40 @@
 # André Nascimento      92419       https://github.com/ArcKenimuZ
 # Susana Monteiro       92560       https://github.com/susmonteiro
 
-struct StandardQualifier end
-struct TupleQualifier end
 
-struct BeforeQualifier end
-struct PrimaryQualifier end
-struct AfterQualifier end
+
+abstract type Qualifier end
+abstract type CombineQualifier <: Qualifier end
+abstract type MethodQualifier <: Qualifier end
+
+struct StandardQualifier <: CombineQualifier end
+struct TupleQualifier <: CombineQualifier end
+
+struct BeforeQualifier <: MethodQualifier end
+struct PrimaryQualifier <: MethodQualifier end
+struct AfterQualifier <: MethodQualifier end
+
+@inline function toString(qualifier::StandardQualifier) "StandardQualifier" end
+@inline function toString(qualifier::TupleQualifier) "TupleQualifier" end
+@inline function toString(qualifier::BeforeQualifier) "BeforeQualifier" end
+@inline function toString(qualifier::PrimaryQualifier) "PrimaryQualifier" end
+@inline function toString(qualifier::AfterQualifier) "AfterQualifier" end
+
+
 
 struct SpecificMethod
     name::Symbol                # name of the specific method
-    parameters::Tuple           # tuple of parameter types of the specific method
-    qualifier                   # qualifier of the specific method (primary, before, after)
+    parameters::Tuple           # tuple containing the types of the parameters of the specific method
+    qualifier::MethodQualifier  # qualifier of the specific method (primary, before, after)
     body
     nativeFunction              # anonymous function that executes the specific method
 end
+
 struct GenericFunction
-    name::Symbol                    # name of the generic method
-    parameters::Tuple               # parameter types of the generic method
-    qualifier                       # qualifier of the generic method (standard, tuple)
-    methods::Set{SpecificMethod}    # set with all of the generic's specific methods
+    name::Symbol                            # name of the generic method
+    nParameters::Int                        # number of parameters of the generic function
+    qualifier::CombineQualifier             # qualifier of the generic method (standard, tuple)
+    methods::Dict{String, SpecificMethod}   # set with all of the generic's specific methods
 end
 
 (genericFunction::GenericFunction)(args...) = combineMethods(genericFunction, genericFunction.qualifier, args...)
@@ -44,8 +59,12 @@ function getMethodQualifier(qualifier)
     end        
 end
 
-function isMethodFormValid(form)::Bool
-    return hasproperty(form, :args) && length(form.args) >= 1
+@inline function getMethodParameterSignature(parameters::Vector{Any})
+    Tuple(map(p -> hasproperty(p, :args) && length(p.args) >= 1 ? p.args[2] : :Any, parameters))
+end
+
+@inline function isMethodFormValid(form)
+    hasproperty(form, :args) && length(form.args) >= 1
 end
     
 function validateGenericFunctionForm(form)
@@ -60,30 +79,27 @@ function validateSpecificMethodForm(form)
     end
 end
 
-function validateGeneric(name::Symbol, parameters::Vector)
-    try
-        let generic = eval(name)
-            if !(typeof(generic) <: GenericFunction && length(generic.parameters) == length(parameters))
-                throw(ArgumentError(""))
-            end
+function createSpecificMethod(generic::GenericFunction, name::Symbol, qualifier::MethodQualifier, body, nativeFunction)
+    let parameters = fieldtypes(methods(nativeFunction).ms[1].sig)[2:end]
+        if generic.nParameters != length(parameters)
+            throw(ArgumentError("The existent generic function does not match the number of arguments of the specific method"))
         end
-    catch
-        throw(ArgumentError("Specific method definition requires valid generic method to be defined!"))
+        SpecificMethod(name, parameters, qualifier, body, nativeFunction)
     end
 end
 
 
 
-# Macro to define a generic method
+# Macro to define a generic function
 macro defgeneric(form, qualifier=:standard)
     validateGenericFunctionForm(form)
     let name = form.args[1],
-        parameters = form.args[2:end]
+        nParameters = length(form.args[2:end])
         esc(:($(name) = GenericFunction(
             $(QuoteNode(name)),
-            $((parameters...,)),
+            $(nParameters),
             $(getCombineQualifier(qualifier)),
-            Set{SpecificMethod}()
+            Dict{String, SpecificMethod}()
         )))
     end
 end
@@ -94,14 +110,17 @@ macro defmethod(qualifier, form)
     let name = form.args[1].args[1],
         parameters = form.args[1].args[2:end],
         body = form.args[2]
-        validateGeneric(name, parameters)
-        esc(:(push!($(name).methods, SpecificMethod(
-            $(QuoteNode(name)),
-            $(parameters...,),
-            $(getMethodQualifier(qualifier)),
-            $(QuoteNode(body)),
-            ($(parameters...),) -> $body
-        ))))
+        esc(:(
+            let name = $(QuoteNode(name)),
+                parameterSignature = getMethodParameterSignature($(parameters)),
+                qualifier = $(getMethodQualifier(qualifier)),
+                body = $(QuoteNode(body))
+                let signature = String(name) * "$parameterSignature[$(toString(qualifier))]"
+                    specificMethod = createSpecificMethod($(name), name, qualifier, body, ($(parameters...),) -> $body)
+                    setindex!($(name).methods, specificMethod, signature)
+                end
+            end
+        ))
     end
 end
 
@@ -111,6 +130,7 @@ end
 
 
 
+# Main method responsible for combining standard methods
 function combineMethods(genericFunction::GenericFunction, qualifier::StandardQualifier, arguments...)
     methods = []
     append!(methods, executeMethods(genericFunction.methods, BeforeQualifier(), arguments...))
@@ -120,6 +140,7 @@ function combineMethods(genericFunction::GenericFunction, qualifier::StandardQua
     println("\nDone :)")
 end
 
+# Main method responsible for combining tuple methods
 function combineMethods(genericFunction::GenericFunction, qualifier::TupleQualifier, arguments...)
     println("This is a Tuple combination")
     # todo
@@ -133,7 +154,6 @@ function no_applicable_method(f::GenericFunction, args...)
     error("No applicable method $(f.name) for arguments $args of types $(typeof(args))")
 end
 
-# todo change name
 function executeMethods(methods, qualifier::BeforeQualifier, arguments...) 
     applicable_methods = getApplicableMethods(methods, qualifier, arguments...)
     sortMethods(applicable_methods)
@@ -157,7 +177,7 @@ end
 
 function getApplicableMethods(methods, qualifier, arguments...)
     applicable_methods = []
-    for method in methods
+    for method in values(methods)
         if method.qualifier == qualifier && applicable(method.nativeFunction, arguments...)
             push!(applicable_methods, method)
         end
@@ -198,16 +218,17 @@ end
 
 function sortFunction(A, B)
     for (a, b) in zip(A, B)
-        typeA = eval(a.args[2])
-        typeB = eval(b.args[2])
-        if (typeA == typeB) 
-            println("Types are the same")
+        if (a == b) 
             continue
         else
-            return (typeA <: typeB)
+            return (a <: b)
         end
     end
 end
+
+
+
+
 
 # todo remove this
 @defgeneric explain(entity)
