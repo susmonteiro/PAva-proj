@@ -36,6 +36,7 @@ struct GenericFunction
     parameters::Tuple                       # parameters of the generic function
     qualifier::CombineQualifier             # qualifier of the generic method (standard, tuple)
     methods::Dict{String, SpecificMethod}   # set with all of the generic's specific methods
+    effective_methods::Dict{Symbol, Any}
 end
 
 (genericFunction::GenericFunction)(args...) = combineMethods(genericFunction, genericFunction.qualifier, args...)
@@ -98,7 +99,8 @@ macro defgeneric(form, qualifier=:standard)
             $(QuoteNode(name)),
             $((parameters...,)),
             $(getCombineQualifier(qualifier)),
-            Dict{String, SpecificMethod}()
+            Dict{String, SpecificMethod}(),
+            Dict{Symbol, Any}()
         )))
     end
 end
@@ -130,12 +132,20 @@ end
 
 # Main method responsible for combining standard methods
 function combineMethods(genericFunction::GenericFunction, qualifier::StandardQualifier, arguments...)
-    methods = []
-    append!(methods, executeMethods(genericFunction.methods, BeforeQualifier(), arguments...))
-    append!(methods, executeMethods(genericFunction.methods, PrimaryQualifier(), arguments...))
-    append!(methods, executeMethods(genericFunction.methods, AfterQualifier(), arguments...))
-    effective_method = generateEffectiveMethod(genericFunction, methods)
-    effective_method(arguments...)
+    let signature = Symbol(map(p -> typeof(p), arguments))
+        effective_method = get(genericFunction.effective_methods, signature) do
+            # todo remove me
+            println("Generating new method...")
+            methods = []
+            append!(methods, executeMethods(genericFunction.methods, BeforeQualifier(), arguments...))
+            append!(methods, executeMethods(genericFunction.methods, PrimaryQualifier(), arguments...))
+            append!(methods, executeMethods(genericFunction.methods, AfterQualifier(), arguments...))
+            effective_method = generateEffectiveMethod(genericFunction, methods)
+            setindex!(genericFunction.effective_methods, effective_method, signature)
+            return effective_method
+        end
+        effective_method(arguments...)
+    end
 end
 
 # Main method responsible for combining tuple methods
@@ -191,7 +201,7 @@ end
 function generateEffectiveMethod(gf::GenericFunction, methods)    
     parameters = map(p -> p, gf.parameters)
 
-    effective_method = (parameters) -> begin
+    (parameters) -> begin
         applicable_methods = methods
         for m in applicable_methods
             m.nativeFunction(parameters)
