@@ -132,17 +132,18 @@ end
 
 # Main method responsible for combining standard methods
 function combineMethods(genericFunction::GenericFunction, qualifier::StandardQualifier, arguments...)
-    let signature = Symbol(map(p -> typeof(p), arguments))
+    let signature = Symbol(map(p -> typeof(p), arguments)),
         effective_method = get(genericFunction.effective_methods, signature) do
             # todo remove me
             println("Generating new method...")
-            methods = []
-            append!(methods, executeMethods(genericFunction.methods, BeforeQualifier(), arguments...))
-            append!(methods, executeMethods(genericFunction.methods, PrimaryQualifier(), arguments...))
-            append!(methods, executeMethods(genericFunction.methods, AfterQualifier(), arguments...))
-            effective_method = generateEffectiveMethod(genericFunction, methods)
-            setindex!(genericFunction.effective_methods, effective_method, signature)
-            return effective_method
+            let methods=[]
+                append!(methods, executeMethods(genericFunction.methods, BeforeQualifier(), arguments...))
+                append!(methods, executeMethods(genericFunction.methods, PrimaryQualifier(), arguments...))
+                append!(methods, executeMethods(genericFunction.methods, AfterQualifier(), arguments...))
+                effective_method = generateEffectiveMethod(genericFunction, methods)
+                setindex!(genericFunction.effective_methods, effective_method, signature)
+                return effective_method
+            end
         end
         effective_method(arguments...)
     end
