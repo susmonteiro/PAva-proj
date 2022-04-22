@@ -158,8 +158,7 @@ end
 
 
 function no_applicable_method(f::GenericFunction, args...)
-    # todo print types like (x,y) instead of Tuple{x,y}
-    error("No applicable method $(f.name) for arguments $args of types $(typeof(args))")
+    error("No applicable method $(f.name) for arguments $args of types $(map(arg -> typeof(arg), args))")
 end
 
 function executeMethods(methods, qualifier::BeforeQualifier, arguments...) 
@@ -223,3 +222,6 @@ function sortFunction(A, B)
     end
 end
 
+@defgeneric explain(entity)
+
+@defmethod explain(entity::Int) = print("$entity is a Int")
