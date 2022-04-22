@@ -128,14 +128,14 @@ end
 
 
 
-# Main method responsable for combining standard methods
+# Main method responsible for combining standard methods
 function combineMethods(genericFunction::GenericFunction, qualifier::StandardQualifier, arguments...)
     executeMethods(genericFunction.methods, BeforeQualifier(), arguments...)
     executeMethods(genericFunction.methods, PrimaryQualifier(), arguments...)
     executeMethods(genericFunction.methods, AfterQualifier(), arguments...)
 end
 
-# Main method responsable for combining tuple methods
+# Main method responsible for combining tuple methods
 function combineMethods(genericFunction::GenericFunction, qualifier::TupleQualifier, arguments...)
     println("This is a Tuple combination")
     # todo
@@ -149,7 +149,6 @@ function no_applicable_method(f::GenericFunction, args...)
     error("No applicable method $(f.name) for arguments $args of types $(typeof(args))")
 end
 
-# todo change name
 function executeMethods(methods, qualifier::BeforeQualifier, arguments...) 
     applicable_methods = getApplicableMethods(methods, qualifier, arguments...)
     sorted_methods = sortMethods(applicable_methods)
@@ -174,7 +173,7 @@ end
 
 function getApplicableMethods(methods, qualifier, arguments...)
     applicable_methods = []
-    for method in methods
+    for method in values(methods)
         if method.qualifier == qualifier && applicable(method.nativeFunction, arguments...)
             push!(applicable_methods, method)
         end
@@ -194,13 +193,10 @@ end
 
 function sortFunction(A, B)
     for (a, b) in zip(A, B)
-        typeA = eval(a.args[2])
-        typeB = eval(b.args[2])
-        if (typeA == typeB) 
-            println("Types are the same")
+        if (a == b) 
             continue
         else
-            return (typeA <: typeB)
+            return (a <: b)
         end
     end
 end
