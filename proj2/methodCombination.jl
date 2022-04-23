@@ -158,38 +158,30 @@ end
 
 
 # Main method responsible for getting the applicable methods and generating effective methods for a StandardCombination
-function combineMethods(genericFunction::GenericFunction, qualifier::StandardQualifier, arguments...)
-    let standardMethods = findMethods(genericFunction, qualifier, arguments...)
-        generateEffectiveMethod(genericFunction, qualifier, standardMethods, arguments...)
+function combineMethods(genericFunction::GenericFunction, qualifier::Qualifier, arguments...)
+    let methods = findMethods(genericFunction, qualifier, arguments...)
+        sortAndGenerateMethod(genericFunction, qualifier, methods, arguments...)
     end
 end
-
-# Main method responsible for getting the applicable methods and generating effective methods for a TupleCombination
-function combineMethods(genericFunction::GenericFunction, qualifier::TupleQualifier, arguments...)
-    let tupleMethods = findMethods(genericFunction, qualifier, arguments...)
-        generateEffectiveMethod(genericFunction, qualifier, tupleMethods, arguments...)
-    end
-end
-
 
 
 # Method responsible for generating an effective method for a standard combination
-function generateEffectiveMethod(genericFunction::GenericFunction, qualifier::StandardQualifier, standardMethods::Dict, arguments...) 
+function sortAndGenerateMethod(genericFunction::GenericFunction, qualifier::StandardQualifier, standardMethods::Dict, arguments...) 
     let beforeMethods = sortMethods(standardMethods[BeforeQualifier()]),
         primaryMethods = sortMethods(standardMethods[PrimaryQualifier()]),
         afterMethods = sortMethods(standardMethods[AfterQualifier()], true)
 
-        if isempty(beforeMethods) && isempty(primaryMethods) && isempty(afterMethods)
-            no_applicable_method(genericFunction, arguments...)
-        end
-
-        isempty(primaryMethods) ?
-            generateStandardMethod(beforeMethods, afterMethods) :
+        isempty(primaryMethods) ? (
+            isempty(beforeMethods) && isempty(afterMethods) ?
+                no_applicable_method(genericFunction, arguments...) :
+                generateStandardMethod(beforeMethods, afterMethods)
+            ) :
             generateStandardMethod(beforeMethods, first(primaryMethods), afterMethods)
     end
 end
 
-function generateEffectiveMethod(genericFunction::GenericFunction, qualifier::TupleQualifier, tupleMethods::Vector{SpecificMethod}, arguments...) 
+# Method responsible for generating an effective method for a tuple combination
+function sortAndGenerateMethod(genericFunction::GenericFunction, qualifier::TupleQualifier, tupleMethods::Vector{SpecificMethod}, arguments...) 
     let methods = sortMethods(tupleMethods)
         isempty(methods) ?
             no_applicable_method(genericFunction, arguments...) :            
@@ -218,8 +210,6 @@ function generateTupleMethod(methods)
         Tuple(map(m -> m.nativeFunction(parameters...), methods))
     end
 end
-
-
 
 
 # Method responsible for retrieving the all three types of applicable methods of a StandardCombination in their respective order 

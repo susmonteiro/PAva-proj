@@ -3,7 +3,6 @@
 
 @defmethod noargs() = 
     println("I got no args yeah")
-    println("I am multilined tho")
 
 # explain methods
 @defgeneric explain(entity)
@@ -49,3 +48,12 @@
 @defmethod what_are_you(n::Number) = "I am a Number"
 
 @defmethod what_are_you(n::Rational) = "I am a Rational"
+
+what_are_you(1)
+what_are_you(1234.534)
+add(4,8)
+explain(132)
+add(6//4, 7//3)
+explain(1.5454)
+explain("54853")
+noargs()
