@@ -81,6 +81,10 @@ function createSpecificMethod(generic::GenericFunction, name::Symbol, qualifier:
     end
 end
 
+function cleanCache(genericFunction::GenericFunction)
+    empty!(genericFunction.effectiveMethods)
+end
+
 function no_applicable_method(f::GenericFunction, args...)
     error("No applicable method $(f.name) for arguments $args of types $(map(arg -> typeof(arg), args))")
 end
@@ -113,6 +117,7 @@ macro defmethod(qualifier, form)
                 parameterSignature = getMethodParameterSignature($(parameters)),
                 qualifierObj = $(getMethodQualifier(qualifier)),
                 qualifier = $(QuoteNode(qualifier))
+                cleanCache($(name))
                 let signature = Symbol(name, parameterSignature, :([$qualifier])),
                     specificMethod = createSpecificMethod($(name), name, qualifierObj, ($(parameters...),) -> $body)
                     setindex!($(name).methods, specificMethod, signature)
