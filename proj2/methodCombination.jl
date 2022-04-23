@@ -81,6 +81,10 @@ function createSpecificMethod(generic::GenericFunction, name::Symbol, qualifier:
     end
 end
 
+function no_applicable_method(f::GenericFunction, args...)
+    error("No applicable method $(f.name) for arguments $args of types $(map(arg -> typeof(arg), args))")
+end
+
 
 
 # Macro to define a generic function
@@ -150,7 +154,7 @@ end
 # Main method responsible for getting the applicable methods and generating effective methods for a StandardCombination
 function combineMethods(genericFunction::GenericFunction, qualifier::StandardQualifier, arguments...)
     let standardMethods = findMethods(genericFunction, qualifier, arguments...)
-        generateEffectiveMethod(genericFunction, qualifier, standardMethods)
+        generateEffectiveMethod(genericFunction, qualifier, standardMethods, arguments...)
     end
 end
 
@@ -162,19 +166,37 @@ end
 
 
 # Method responsible for generating an effective method for a standard combination
-function generateEffectiveMethod(genericFunction::GenericFunction, qualifier::StandardQualifier, standardMethods::Dict) 
-    let parameters = map(p -> p, genericFunction.parameters)
-        beforeMethods = sortMethods(standardMethods[BeforeQualifier()])
-        primaryMethod = first(sortMethods(standardMethods[PrimaryQualifier()]))     # FIXME : Allow primary to be nothing
+function generateEffectiveMethod(genericFunction::GenericFunction, qualifier::StandardQualifier, standardMethods::Dict, arguments...) 
+    let beforeMethods = sortMethods(standardMethods[BeforeQualifier()]),
+        primaryMethods = sortMethods(standardMethods[PrimaryQualifier()]),
         afterMethods = sortMethods(standardMethods[AfterQualifier()], true)
-        (parameters...) -> begin
-            foreach(m -> m.nativeFunction(parameters...), beforeMethods)
-            returnValue = primaryMethod.nativeFunction(parameters...)
-            foreach(m -> m.nativeFunction(parameters...), afterMethods)
-            return returnValue
+
+        if isempty(beforeMethods) && isempty(primaryMethods) && isempty(afterMethods)
+            no_applicable_method(genericFunction, arguments...)
         end
+
+        isempty(primaryMethods) ?
+            generateStandardMethod(beforeMethods, afterMethods) :
+            generateStandardMethod(beforeMethods, first(primaryMethods), afterMethods)
     end
 end
+
+function generateStandardMethod(beforeMethods, afterMethods)
+    (parameters...) -> begin
+        foreach(m -> m.nativeFunction(parameters...), beforeMethods)
+        foreach(m -> m.nativeFunction(parameters...), afterMethods)
+    end
+end
+
+function generateStandardMethod(beforeMethods, primaryMethod, afterMethods)
+    (parameters...) -> begin
+        foreach(m -> m.nativeFunction(parameters...), beforeMethods)
+        returnValue = primaryMethod.nativeFunction(parameters...)
+        foreach(m -> m.nativeFunction(parameters...), afterMethods)
+        return returnValue
+    end
+end
+
 
 
 
