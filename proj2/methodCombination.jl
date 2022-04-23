@@ -136,12 +136,12 @@ end
 # Method responsible for managing the cache of effectiveMethods
 function retrieveCachedMethods(genericFunction::GenericFunction, arguments...)
     let signature = Symbol(map(p -> Symbol(typeof(p)), arguments))
-        get(genericFunction.effectiveMethods, signature) do
+        # get(genericFunction.effectiveMethods, signature) do
             let effectiveMethod = combineMethods(genericFunction, genericFunction.qualifier, arguments...)
                 setindex!(genericFunction.effectiveMethods, effectiveMethod, signature)
                 return effectiveMethod
             end
-        end
+        # end
     end
 end
 
@@ -162,17 +162,34 @@ end
 
 
 # Method responsible for generating an effective method for a standard combination
-function generateEffectiveMethod(genericFunction::GenericFunction, qualifier::StandardQualifier, standardMethods::Dict) 
-    let parameters = map(p -> p, genericFunction.parameters)
-        beforeMethods = sortMethods(standardMethods[BeforeQualifier()])
-        primaryMethod = first(sortMethods(standardMethods[PrimaryQualifier()]))     # FIXME : Allow primary to be nothing
-        afterMethods = sortMethods(standardMethods[AfterQualifier()], true)
-        (parameters...) -> begin
-            foreach(m -> m.nativeFunction(parameters...), beforeMethods)
-            returnValue = primaryMethod.nativeFunction(parameters...)
-            foreach(m -> m.nativeFunction(parameters...), afterMethods)
+macro generateStandardMethod(beforeMethods, primaryMethod, afterMethods)
+    esc(:(
+        begin
+            foreach(m -> m.nativeFunction(parameters...), $(beforeMethods))
+            returnValue = $(primaryMethod)(parameters...)
+            foreach(m -> m.nativeFunction(parameters...), $(afterMethods))
             return returnValue
         end
+    ))
+end
+
+macro generateStandardMethod(beforeMethods, afterMethods)
+    esc(:(
+        begin
+            foreach(m -> m.nativeFunction(parameters...), $(beforeMethods))
+            foreach(m -> m.nativeFunction(parameters...), $(afterMethods))
+        end
+    ))
+end
+
+function generateEffectiveMethod(genericFunction::GenericFunction, qualifier::StandardQualifier, standardMethods::Dict)
+    let parameters = map(p -> p, genericFunction.parameters)
+        beforeMethods = sortMethods(standardMethods[BeforeQualifier()])
+        primaryMethods = sortMethods(standardMethods[PrimaryQualifier()])
+        afterMethods = sortMethods(standardMethods[AfterQualifier()], true)
+        length(primaryMethods) >= 1 ? 
+            ((parameters...) -> @generateStandardMethod beforeMethods first(primaryMethods).nativeFunction afterMethods) :
+            ((parameters...) -> @generateStandardMethod beforeMethods afterMethods)
     end
 end
 
