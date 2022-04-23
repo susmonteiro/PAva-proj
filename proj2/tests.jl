@@ -1,7 +1,9 @@
 # noargs methods
 @defgeneric noargs()
 
-@defmethod noargs() = println("I got no args yeah")
+@defmethod noargs() = 
+    println("I got no args yeah")
+    println("I am multilined tho")
 
 # explain methods
 @defgeneric explain(entity)
@@ -36,3 +38,14 @@
 @defmethod add(x::String, y::String) = x * y
 
 @defmethod before add(x::Rational, y::Rational) = println("These are rationals")
+
+# what methods (tuple)
+@defgeneric what_are_you(entity) tuple
+
+@defmethod what_are_you(n::Int64) = "I am a Int64"
+
+@defmethod what_are_you(n::Float64) = "I am a Float64"
+
+@defmethod what_are_you(n::Number) = "I am a Number"
+
+@defmethod what_are_you(n::Rational) = "I am a Rational"

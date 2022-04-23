@@ -108,6 +108,7 @@ end
 
 # Macro to define a specific method
 macro defmethod(qualifier, form)
+    # TODO do we need to check if the generic qualifier is tuple and the specific is before, for example? (this should not be allowed)
     validateSpecificMethodForm(form)
     let name = form.args[1].args[1],
         parameters = form.args[1].args[2:end],
@@ -165,7 +166,9 @@ end
 
 # Main method responsible for getting the applicable methods and generating effective methods for a TupleCombination
 function combineMethods(genericFunction::GenericFunction, qualifier::TupleQualifier, arguments...)
-    # TODO: Finish tuple combination
+    let tupleMethods = findMethods(genericFunction, qualifier, arguments...)
+        generateEffectiveMethod(genericFunction, qualifier, tupleMethods, arguments...)
+    end
 end
 
 
@@ -186,6 +189,14 @@ function generateEffectiveMethod(genericFunction::GenericFunction, qualifier::St
     end
 end
 
+function generateEffectiveMethod(genericFunction::GenericFunction, qualifier::TupleQualifier, tupleMethods::Vector{SpecificMethod}, arguments...) 
+    let methods = sortMethods(tupleMethods)
+        isempty(methods) ?
+            no_applicable_method(genericFunction, arguments...) :            
+            generateTupleMethod(methods)
+    end
+end
+
 function generateStandardMethod(beforeMethods, afterMethods)
     (parameters...) -> begin
         foreach(m -> m.nativeFunction(parameters...), beforeMethods)
@@ -202,13 +213,19 @@ function generateStandardMethod(beforeMethods, primaryMethod, afterMethods)
     end
 end
 
+function generateTupleMethod(methods)
+    (parameters...) -> begin
+        Tuple(map(m -> m.nativeFunction(parameters...), methods))
+    end
+end
+
 
 
 
 # Method responsible for retrieving the all three types of applicable methods of a StandardCombination in their respective order 
 function findMethods(genericFunction::GenericFunction, qualifier::StandardQualifier, arguments...)
     function addMethodToStandardListIfApplicable!(standardMethods::Dict, method::SpecificMethod, qualifier::Qualifier, arguments...)
-        if isMethodApplicable(method, qualifier, arguments...)
+        if method.qualifier == qualifier && applicable(method.nativeFunction, arguments...)
             push!(standardMethods[qualifier], method)
         end
     end
@@ -219,13 +236,13 @@ function findMethods(genericFunction::GenericFunction, qualifier::StandardQualif
     end
 end
 
+function findMethods(genericFunction::GenericFunction, qualifier::TupleQualifier, arguments...)
+    filter(m -> applicable(m.nativeFunction, arguments...), collect(values(genericFunction.methods)))
+end
+
 
 
 # Auxiliary methods used while generating the new combination method
-
-@inline function isMethodApplicable(method::SpecificMethod, qualifier::Qualifier, arguments...)::Bool
-    method.qualifier == qualifier && applicable(method.nativeFunction, arguments...)
-end
 
 function sortMethods(methods::Vector, reverseOrder::Bool = false)
     function sortPredicate(A, B)    # TODO: Replace by foreach
