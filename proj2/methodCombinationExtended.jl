@@ -22,12 +22,16 @@ struct SpecificMethod
     native_function::Any         # anonymous function that executes the specific method
 end
 
-struct GenericFunction
-    name::Symbol                                    # name of the generic method
+struct GenericFunctionNArgs
     parameters::Tuple                               # parameters of the generic function
     qualifier::CombineQualifier                     # qualifier of the generic method (standard, tuple)
-    methods::Dict{Symbol, SpecificMethod}           # set with all of the generic's specific methods
-    effectiveMethods::Dict{Symbol, Any}             # set with all of the effective methods already generated
+    methods::Dict{Symbol, SpecificMethod}           # dictionary with all of the generic's specific methods
+    effectiveMethods::Dict{Symbol, Any}             # dictionary with all of the effective methods already generated
+end
+
+struct GenericFunction
+    name::Symbol                                            # name of the generic function
+    genericFunctionNArgs::Dict{Int, GenericFunctionNArgs}   # dictionary with all the generic functions for each number of arguments
 end
 
 (genericFunction::GenericFunction)(arguments...) = call_effective_method(genericFunction, arguments...)
@@ -70,7 +74,7 @@ function validate_specific_method_form(form)
     end
 end
 
-function create_specific_method(generic::GenericFunction, name::Symbol, qualifier::MethodQualifier, native_function)
+function create_specific_method(generic::GenericFunctionNArgs, name::Symbol, qualifier::MethodQualifier, native_function)
     let parameters = fieldtypes(methods(native_function).ms[1].sig)[2:end]
         if length(generic.parameters) != length(parameters)
             error("The existent generic function does not match the number of arguments of the specific method")
@@ -79,7 +83,7 @@ function create_specific_method(generic::GenericFunction, name::Symbol, qualifie
     end
 end
 
-function clean_cache(genericFunction::GenericFunction)
+function clean_cache(genericFunction::GenericFunctionNArgs)
     empty!(genericFunction.effectiveMethods)
 end
 
@@ -89,18 +93,33 @@ end
 
 
 
-# Macro to define a generic function
-macro defgeneric(form, qualifier=:standard)
-    validate_generic_function(form)
+# Macro to defined a generic function with nArgs
+macro defgenericNArgs(form, qualifier)
     let name = form.args[1],
         parameters = form.args[2:end]
-        esc(:($(name) = GenericFunction(
-            $(QuoteNode(name)),
+        esc(:($(name) = GenericFunctionNArgs(
             $((parameters...,)),
             $(get_combine_qualifier(qualifier)),
             Dict{String, SpecificMethod}(),
             Dict{Symbol, Any}()
         )))
+    end
+end
+
+# Macro to define a generic function
+macro defgeneric(form, qualifier=:standard)
+    validate_generic_function(form)
+    let name = form.args[1],
+        parameters = form.args[2:end]
+        esc(:(
+            if !(@isdefined $name) 
+                $name = GenericFunction($(QuoteNode(name)), Dict{Int, GenericFunctionNArgs}(length($((parameters...,))) => (@defgenericNArgs $form $qualifier)))
+            else
+                temp = $name
+                setindex!($(name).genericFunctionNArgs, (@defgenericNArgs $form $qualifier), length($((parameters...,))))
+                $name = temp
+            end
+        ))
     end
 end
 
@@ -112,13 +131,14 @@ macro defmethod(qualifier, form)
         body = form.args[2]
         esc(:(
             let name = $(QuoteNode(name)),
+                nParameters = length($(parameters)),
                 parameterSignature = get_method_parameter_signature($(parameters)),
                 qualifierObj = $(get_method_qualifier(qualifier)),
                 qualifier = $(QuoteNode(qualifier))
-                clean_cache($(name))
+                clean_cache($(name).genericFunctionNArgs[nParameters])
                 let signature = Symbol(name, parameterSignature, :([$qualifier])),
-                    specificMethod = create_specific_method($(name), name, qualifierObj, ($(parameters...),) -> $body)
-                    setindex!($(name).methods, specificMethod, signature)
+                    specificMethod = create_specific_method($(name).genericFunctionNArgs[nParameters], name, qualifierObj, ($(parameters...),) -> $body)
+                    setindex!($(name).genericFunctionNArgs[nParameters].methods, specificMethod, signature)
                 end
             end
         ))
@@ -131,8 +151,15 @@ end
 
 
 
-# Method responsible for calling the effective method of the combination
+# Method responsible for calling the effective method of a generic function
 function call_effective_method(genericFunction::GenericFunction, arguments...)
+    let genericFunctionNArgs = genericFunction.genericFunctionNArgs[length(arguments)]
+        call_effective_method(genericFunctionNArgs, arguments...)
+    end
+end
+
+# Method responsible for calling the effective method of a generic function with a specific number of arguments
+function call_effective_method(genericFunction::GenericFunctionNArgs, arguments...)
     let effectiveMethod = retrieve_cache_methods(genericFunction, arguments...)
         effectiveMethod(arguments...)
     end
@@ -141,7 +168,7 @@ end
 
 
 # Method responsible for managing the cache of effectiveMethods
-function retrieve_cache_methods(genericFunction::GenericFunction, arguments...)
+function retrieve_cache_methods(genericFunction::GenericFunctionNArgs, arguments...)
     let signature = Symbol(map(p -> Symbol(typeof(p)), arguments))
         get(genericFunction.effectiveMethods, signature) do
             let effectiveMethod = combine_methods(genericFunction, genericFunction.qualifier, arguments...)
@@ -155,7 +182,7 @@ end
 
 
 # Main method responsible for getting the applicable methods and generating effective methods for a StandardCombination
-function combine_methods(genericFunction::GenericFunction, qualifier::Qualifier, arguments...)
+function combine_methods(genericFunction::GenericFunctionNArgs, qualifier::Qualifier, arguments...)
     let methods = find_methods(genericFunction, qualifier, arguments...)
         sort_and_generate_method(genericFunction, qualifier, methods, arguments...)
     end
@@ -163,7 +190,7 @@ end
 
 
 # Method responsible for generating an effective method for a standard combination
-function sort_and_generate_method(genericFunction::GenericFunction, qualifier::StandardQualifier, standardMethods::Dict, arguments...) 
+function sort_and_generate_method(genericFunction::GenericFunctionNArgs, qualifier::StandardQualifier, standardMethods::Dict, arguments...) 
     let beforeMethods = sort_methods(standardMethods[BeforeQualifier()]),
         primaryMethods = sort_methods(standardMethods[PrimaryQualifier()]),
         afterMethods = sort_methods(standardMethods[AfterQualifier()], true)
@@ -178,7 +205,7 @@ function sort_and_generate_method(genericFunction::GenericFunction, qualifier::S
 end
 
 # Method responsible for generating an effective method for a tuple combination
-function sort_and_generate_method(genericFunction::GenericFunction, qualifier::TupleQualifier, tupleMethods::Vector{SpecificMethod}, arguments...) 
+function sort_and_generate_method(genericFunction::GenericFunctionNArgs, qualifier::TupleQualifier, tupleMethods::Vector{SpecificMethod}, arguments...) 
     let methods = sort_methods(tupleMethods)
         isempty(methods) ?
             no_applicable_method(genericFunction, arguments...) :
@@ -210,7 +237,7 @@ end
 
 
 # Method responsible for retrieving the all three types of applicable methods of a StandardCombination in their respective order 
-function find_methods(genericFunction::GenericFunction, qualifier::StandardQualifier, arguments...)
+function find_methods(genericFunction::GenericFunctionNArgs, qualifier::StandardQualifier, arguments...)
     function add_method_to_standard_list_if_applicable!(standardMethods::Dict, method::SpecificMethod, qualifier::Qualifier, arguments...)
         if method.qualifier == qualifier && applicable(method.native_function, arguments...)
             push!(standardMethods[qualifier], method)
@@ -223,7 +250,7 @@ function find_methods(genericFunction::GenericFunction, qualifier::StandardQuali
     end
 end
 
-function find_methods(genericFunction::GenericFunction, qualifier::TupleQualifier, arguments...)
+function find_methods(genericFunction::GenericFunctionNArgs, qualifier::TupleQualifier, arguments...)
     filter(m -> applicable(m.native_function, arguments...), collect(values(genericFunction.methods)))
 end
 
