@@ -49,6 +49,7 @@
 
 @defmethod what_are_you(n::Rational) = "I am a Rational"
 
+println("\n===== [Statement Test] =====")
 what_are_you(1)
 what_are_you(1234.534)
 add(4,8)
@@ -58,7 +59,16 @@ explain(1.5454)
 explain("54853")
 noargs()
 
+# generics with variadic number of arguments
+println("\n===== [Generics with Variadic Number of Arguments Test] =====")
+@defgeneric add(x, y, z)
+
+@defmethod add(x::Int, y::Int, z::Int) = println(x + y + z)
+
+add(1, 2, 3)
+
 # arguments precedence order
+println("\n===== [Arguments Precedence Order Test] =====")
 @defgeneric no_precedence(x, y, z) tuple
 
 @defmethod no_precedence(x::Int, y, z) = "$x is the first argument"
@@ -67,7 +77,7 @@ noargs()
 
 @defmethod no_precedence(x, y, z::Int) = "$z should be the first to be called"
 
-@defgeneric with_precedence(x, y, z) precedence(z, x, y) tuple
+@defgeneric with_precedence(x, y, z) :precedence(z, x, y) tuple
 
 @defmethod with_precedence(x::Int, y, z) = "$x is the first argument"
 
@@ -75,6 +85,6 @@ noargs()
 
 @defmethod with_precedence(x, y, z::Int) = "$z should be the first to be called"
 
-no_precedence(1,2,3)
+println(no_precedence(1,2,3))
 
-with_precedence(1,2,3)
+println(with_precedence(1,2,3))

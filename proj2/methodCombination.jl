@@ -209,7 +209,7 @@ function generate_tuple_method(methods)
 end
 
 
-# Method responsible for retrieving the all three types of applicable methods of a StandardCombination in their respective order 
+# Method responsible for retrieving the all three types of applicable methods of a StandardCombination separately
 function find_methods(genericFunction::GenericFunction, qualifier::StandardQualifier, arguments...)
     function add_method_to_standard_list_if_applicable!(standardMethods::Dict, method::SpecificMethod, qualifier::Qualifier, arguments...)
         if method.qualifier == qualifier && applicable(method.native_function, arguments...)
@@ -223,6 +223,7 @@ function find_methods(genericFunction::GenericFunction, qualifier::StandardQuali
     end
 end
 
+# Method responsible for retrieving all applicable methods of a TupleCombination
 function find_methods(genericFunction::GenericFunction, qualifier::TupleQualifier, arguments...)
     filter(m -> applicable(m.native_function, arguments...), collect(values(genericFunction.methods)))
 end
