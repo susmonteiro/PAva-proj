@@ -57,3 +57,24 @@ add(6//4, 7//3)
 explain(1.5454)
 explain("54853")
 noargs()
+
+# arguments precedence order
+@defgeneric no_precedence(x, y, z) tuple
+
+@defmethod no_precedence(x::Int, y, z) = "$x is the first argument"
+
+@defmethod no_precedence(x, y::Int, z) = "$y should be the last to be called"
+
+@defmethod no_precedence(x, y, z::Int) = "$z should be the first to be called"
+
+@defgeneric with_precedence(x, y, z) precedence(z, x, y) tuple
+
+@defmethod with_precedence(x::Int, y, z) = "$x is the first argument"
+
+@defmethod with_precedence(x, y::Int, z) = "$y should be the last to be called"
+
+@defmethod with_precedence(x, y, z::Int) = "$z should be the first to be called"
+
+no_precedence(1,2,3)
+
+with_precedence(1,2,3)
