@@ -28,7 +28,7 @@ Display a markdown table of the values in our global environment and their respe
 ```
 
 From class, don't use `eval()` -> creates more problems than it solves.
-Likewise, don't use STRINGs -> "you will fail miserily" :)
+Likewise, don't use STRINGs -> "you will fail miserably" :)
 
 Look at the CLOS slides -> introspectable functions
 All of the details are there
