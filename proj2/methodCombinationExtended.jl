@@ -7,17 +7,32 @@ abstract type Qualifier end
 abstract type CombineQualifier <: Qualifier end
 abstract type MethodQualifier <: Qualifier end
 
+abstract type SimpleQualifier <: CombineQualifier end
 struct StandardQualifier <: CombineQualifier end
-struct TupleQualifier <: CombineQualifier end
+
+struct TupleQualifier <: SimpleQualifier end
+struct AndQualifier <: SimpleQualifier end
+struct OrQualifier <: SimpleQualifier end
+struct SumQualifier <: SimpleQualifier end
+struct ProdQualifier <: SimpleQualifier end
+struct MaxQualifier <: SimpleQualifier end
+struct MinQualifier <: SimpleQualifier end
+
+function simple_operation(qualifier::TupleQualifier) Tuple end
+function simple_operation(qualifier::AndQualifier) all end
+function simple_operation(qualifier::OrQualifier) any end
+function simple_operation(qualifier::SumQualifier) sum end
+function simple_operation(qualifier::ProdQualifier) prod end
+function simple_operation(qualifier::MaxQualifier) maximum end
+function simple_operation(qualifier::MinQualifier) minimum end
 
 struct BeforeQualifier <: MethodQualifier end
 struct PrimaryQualifier <: MethodQualifier end
 struct AfterQualifier <: MethodQualifier end
 
-
 struct SpecificMethod
-    parameters::Tuple           # tuple containing the types of the parameters of the specific method
-    qualifier::MethodQualifier  # qualifier of the specific method (primary, before, after)
+    parameters::Tuple            # tuple containing the types of the parameters of the specific method
+    qualifier::MethodQualifier   # qualifier of the specific method (primary, before, after)
     native_function::Any         # anonymous function that executes the specific method
 end
 
@@ -40,9 +55,17 @@ end
 # Auxiliary functions to create and validate the generic and specific methods
 
 function get_combine_qualifier(qualifier)
-    qualifiers = Dict(:standard => StandardQualifier(), :tuple => TupleQualifier())
+    qualifiers = Dict(
+        :standard => StandardQualifier(), 
+        :tuple => TupleQualifier(),
+        :and => AndQualifier(),
+        :or => OrQualifier(),
+        :sum => SumQualifier(),
+        :prod => ProdQualifier(),
+        :max => MaxQualifier(),
+        :min => MinQualifier())
     get!(qualifiers, qualifier) do
-        error("GenericFunction qualifier must be \":standard\" or \":tuple\"")
+        error("$qualifier is not valid. Possible values are: \"standard\" (default), \"tuple\", \"and\", \"or\", \"sum\", \"prod\", \"max\" and \"min\"")
     end
 end
 
@@ -239,11 +262,11 @@ function sort_and_generate_method(genericFunction::GenericFunction, qualifier::S
 end
 
 # Method responsible for generating an effective method for a tuple combination
-function sort_and_generate_method(genericFunction::GenericFunction, qualifier::TupleQualifier, tupleMethods::Vector{SpecificMethod}, arguments...) 
+function sort_and_generate_method(genericFunction::GenericFunction, qualifier::SimpleQualifier, tupleMethods::Vector{SpecificMethod}, arguments...) 
     let methods = sort_methods(tupleMethods, genericFunction.parametersOrder)
         isempty(methods) ?
             no_applicable_method(genericFunction, arguments...) :
-            generate_tuple_method(methods)
+            generate_simple_method(qualifier, methods)
     end
 end
 
@@ -263,11 +286,12 @@ function generate_standard_method(beforeMethods, primaryMethod, afterMethods)
     end
 end
 
-function generate_tuple_method(methods)
+function generate_simple_method(qualifier::SimpleQualifier, methods)
     (parameters...) -> begin
-        Tuple(map(m -> m.native_function(parameters...), methods))
+        simple_operation(qualifier)(map(m -> m.native_function(parameters...), methods))
     end
 end
+
 
 
 # Method responsible for retrieving the all three types of applicable methods of a StandardCombination separately
@@ -285,7 +309,7 @@ function find_methods(genericFunction::GenericFunction, qualifier::StandardQuali
 end
 
 # Method responsible for retrieving all applicable methods of a TupleCombination
-function find_methods(genericFunction::GenericFunction, qualifier::TupleQualifier, arguments...)
+function find_methods(genericFunction::GenericFunction, qualifier::SimpleQualifier, arguments...)
     filter(m -> applicable(m.native_function, arguments...), collect(values(genericFunction.methods)))
 end
 

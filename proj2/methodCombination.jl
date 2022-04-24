@@ -16,14 +16,12 @@ struct AfterQualifier <: MethodQualifier end
 
 
 struct SpecificMethod
-    name::Symbol                # name of the specific method
-    parameters::Tuple           # tuple containing the types of the parameters of the specific method
-    qualifier::MethodQualifier  # qualifier of the specific method (primary, before, after)
+    parameters::Tuple            # tuple containing the types of the parameters of the specific method
+    qualifier::MethodQualifier   # qualifier of the specific method (primary, before, after)
     native_function::Any         # anonymous function that executes the specific method
 end
 
 struct GenericFunction
-    name::Symbol                                    # name of the generic method
     parameters::Tuple                               # parameters of the generic function
     qualifier::CombineQualifier                     # qualifier of the generic method (standard, tuple)
     methods::Dict{Symbol, SpecificMethod}           # set with all of the generic's specific methods
@@ -70,12 +68,12 @@ function validate_specific_method_form(form)
     end
 end
 
-function create_specific_method(generic::GenericFunction, name::Symbol, qualifier::MethodQualifier, native_function)
+function create_specific_method(generic::GenericFunction, qualifier::MethodQualifier, native_function)
     let parameters = fieldtypes(methods(native_function).ms[1].sig)[2:end]
         if length(generic.parameters) != length(parameters)
             error("The existent generic function does not match the number of arguments of the specific method")
         end
-        SpecificMethod(name, parameters, qualifier, native_function)
+        SpecificMethod(parameters, qualifier, native_function)
     end
 end
 
@@ -95,7 +93,6 @@ macro defgeneric(form, qualifier=:standard)
     let name = form.args[1],
         parameters = form.args[2:end]
         esc(:($(name) = GenericFunction(
-            $(QuoteNode(name)),
             $((parameters...,)),
             $(get_combine_qualifier(qualifier)),
             Dict{String, SpecificMethod}(),
@@ -117,7 +114,7 @@ macro defmethod(qualifier, form)
                 qualifier = $(QuoteNode(qualifier))
                 clean_cache($(name))
                 let signature = Symbol(name, parameterSignature, :([$qualifier])),
-                    specificMethod = create_specific_method($(name), name, qualifierObj, ($(parameters...),) -> $body)
+                    specificMethod = create_specific_method($(name), qualifierObj, ($(parameters...),) -> $body)
                     setindex!($(name).methods, specificMethod, signature)
                 end
             end

@@ -1,6 +1,5 @@
 # noargs methods
 @defgeneric noargs()
-
 @defmethod noargs() = 
     println("I got no args yeah")
 
@@ -88,3 +87,45 @@ println("\n===== [Arguments Precedence Order Test] =====")
 println(no_precedence(1,2,3))
 
 println(with_precedence(1,2,3))
+
+
+# more combination types
+println("\n===== [New Combination Types Test] =====")
+
+@defgeneric and_op(x) and
+@defgeneric or_op(x) or
+@defgeneric sum_op(x) sum
+@defgeneric prod_op(x) prod
+@defgeneric min_op(x) min
+@defgeneric max_op(x) max
+
+@defmethod and_op(x::Number) = begin print("and number; "); return false end
+@defmethod and_op(x::Int) = begin print("and int; "); return true end
+@defmethod and_op(x::Real) = begin print("and real; "); return true end
+
+@defmethod or_op(x::Number) = begin print("or number; "); return false end
+@defmethod or_op(x::Int) = begin print("or int; "); return true end
+@defmethod or_op(x::Real) = begin print("or real; "); return true end
+
+@defmethod sum_op(x::Int) = begin print("sum 1; "); 1 end
+@defmethod sum_op(x::Number) = begin print("sum 2; "); 2 end
+@defmethod sum_op(x::Real) = begin print("sum 3; "); 3 end
+
+@defmethod prod_op(x::Int) = begin print("prod 1; "); 1 end
+@defmethod prod_op(x::Number) = begin print("prod 2; "); 2 end
+@defmethod prod_op(x::Real) = begin print("prod 3; "); 3 end
+
+@defmethod max_op(x::Int) = begin print("max 1; "); 1 end
+@defmethod max_op(x::Number) = begin print("max 2; "); 2 end
+@defmethod max_op(x::Real) = begin print("max 3; "); 3 end
+
+@defmethod min_op(x::Int) = begin print("min 1; "); 1 end
+@defmethod min_op(x::Number) = begin print("min 2; "); 2 end
+@defmethod min_op(x::Real) = begin print("min 3; "); 3 end
+
+println("And operation: $(and_op(1))")
+println("Or operation: $(or_op(1))")
+println("Sum operation: $(sum_op(1))")
+println("Prod operation: $(prod_op(1))")
+println("Max operation: $(max_op(1))")
+println("Min operation: $(min_op(1))")
