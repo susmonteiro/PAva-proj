@@ -18,6 +18,10 @@ struct ProdQualifier <: SimpleQualifier end
 struct MaxQualifier <: SimpleQualifier end
 struct MinQualifier <: SimpleQualifier end
 
+struct BeforeQualifier <: MethodQualifier end
+struct PrimaryQualifier <: MethodQualifier end
+struct AfterQualifier <: MethodQualifier end
+
 function simple_operation(qualifier::TupleQualifier) Tuple end
 function simple_operation(qualifier::AndQualifier) all end
 function simple_operation(qualifier::OrQualifier) any end
@@ -26,9 +30,6 @@ function simple_operation(qualifier::ProdQualifier) prod end
 function simple_operation(qualifier::MaxQualifier) maximum end
 function simple_operation(qualifier::MinQualifier) minimum end
 
-struct BeforeQualifier <: MethodQualifier end
-struct PrimaryQualifier <: MethodQualifier end
-struct AfterQualifier <: MethodQualifier end
 
 struct SpecificMethod
     parameters::Tuple            # tuple containing the types of the parameters of the specific method
@@ -37,6 +38,7 @@ struct SpecificMethod
 end
 
 struct GenericFunction
+    name::Symbol                                    # name of the generic method
     parameters::Tuple                               # parameters of the generic function
     parametersOrder::Tuple                          # arguments precedence order
     qualifier::CombineQualifier                     # qualifier of the generic method (standard, tuple)
@@ -51,8 +53,39 @@ end
 (genericContainer::GenericContainer)(arguments...) = call_effective_method(genericContainer, arguments...)
 
 
+function no_applicable_method(name::Symbol, args...)
+    error("No applicable method $name for arguments $args of types $(map(arg -> typeof(arg), args))")
+end
 
-# Auxiliary functions to create and validate the generic and specific methods
+function no_applicable_method(f::GenericFunction, args...)
+    error("No applicable method $(f.name) for arguments $args of types $(map(arg -> typeof(arg), args))")
+end
+
+function clean_cache(genericFunction::GenericFunction)
+    empty!(genericFunction.effectiveMethods)
+end
+
+
+# === Auxiliary functions to validate the generic and specific methods === #
+
+@inline function is_method_form_valid(form)
+    hasproperty(form, :args) && length(form.args) >= 1
+end
+
+function validate_generic_function(form)
+    if !(is_method_form_valid(form) && !hasproperty(form.args[1], :args))
+        error("Generic method form must be a valid generic method declaration without return type")
+    end
+end
+
+function validate_specific_method_form(form)
+    if !(is_method_form_valid(form) && is_method_form_valid(form.args[1]) && is_method_form_valid(form.args[2]))
+        error("Specific method form must be a valid specific method declaration with a body and without return type")
+    end
+end
+
+
+# === Auxiliary functions to retrieve the required information to construct methods === #
 
 function get_combine_qualifier(qualifier)
     qualifiers = Dict(
@@ -76,30 +109,8 @@ function get_method_qualifier(qualifier)
     end        
 end
 
-
-@inline function is_method_form_valid(form)
-    hasproperty(form, :args) && length(form.args) >= 1
-end
-
-function validate_generic_function(form)
-    if !(is_method_form_valid(form) && !hasproperty(form.args[1], :args))
-        error("Generic method form must be a valid generic method declaration without return type")
-    end
-end
-
-function validate_specific_method_form(form)
-    if !(is_method_form_valid(form) && is_method_form_valid(form.args[1]) && is_method_form_valid(form.args[2]))
-        error("Specific method form must be a valid specific method declaration with a body and without return type")
-    end
-end
-
-
-function get_parameter_signature(parameters)
-    Tuple(map(p -> hasproperty(p, :args) && length(p.args) >= 1 ? p.args[2] : :Any, (parameters)))
-end
-
 function get_argument_order(option, parameters, precedence)
-    function findParameter(parameter)
+    function find_parameter(parameter)
         results = findall(p -> p == parameter, parameters)
         length(results) != 1 ?
             error("$parameter is not a valid parameter") :
@@ -112,12 +123,14 @@ function get_argument_order(option, parameters, precedence)
         error("The length of parameters does not match the length of the precedence list")
     end
 
-    Tuple(map(parameter -> findParameter(parameter), precedence))
+    Tuple(map(parameter -> find_parameter(parameter), precedence))
 end
 
 
-function create_generic_function(parameters::Tuple, argumentsOrder::Tuple, qualifier::CombineQualifier)
-    GenericFunction(parameters, argumentsOrder, qualifier, Dict{String, SpecificMethod}(), Dict{Symbol, Any}())
+# === Auxiliary function to create generics and specific methods === #
+
+function create_generic_function(name::Symbol, parameters::Tuple, argumentsOrder::Tuple, qualifier::CombineQualifier)
+    GenericFunction(name, parameters, argumentsOrder, qualifier, Dict{String, SpecificMethod}(), Dict{Symbol, Any}())
 end
 
 function create_specific_method(generic::GenericFunction, qualifier::MethodQualifier, native_function)
@@ -130,14 +143,7 @@ function create_specific_method(generic::GenericFunction, qualifier::MethodQuali
 end
 
 
-function clean_cache(genericFunction::GenericFunction)
-    empty!(genericFunction.effectiveMethods)
-end
-
-function no_applicable_method(f::GenericFunction, args...)
-    error("No applicable method $(f.name) for arguments $args of types $(map(arg -> typeof(arg), args))")
-end
-
+# === Macros for defining generics and specific method === #
 
 # Macro to define a generic function
 macro defgeneric(form::Expr, precedenceOrder::Vector{Any}, qualifier::Symbol)
@@ -150,17 +156,19 @@ macro defgeneric(form::Expr, precedenceOrder::Vector{Any}, qualifier::Symbol)
         esc(:(
             if !(@isdefined $name)
                 GenericContainer(Dict{Int, GenericFunction}(
-                    length($((parameters...,))) => create_generic_function($((parameters...,)), $argumentsOrder, $qualifier)))
+                    length($((parameters...,))) => create_generic_function($(QuoteNode(name)), $((parameters...,)), $argumentsOrder, $qualifier)))
             else
                 temp = $name
-                setindex!($(name).genericFunctions, create_generic_function($((parameters...,)), $argumentsOrder, $qualifier), length($((parameters...,))))
-                temp
+                setindex!($(name).genericFunctions, 
+                    create_generic_function($(QuoteNode(name)), $((parameters...,)), $argumentsOrder, $qualifier), 
+                    length($((parameters...,))))
+                return temp
             end
         ))
     end
 end
 
-# Initial macro for defining generics with user defined precedence order 
+# Initial macro for defining generic functions with user defined precedence order 
 macro defgeneric(form::Expr, precedenceOrder::Expr, qualifier::Symbol = :standard)
     validate_generic_function(form)
     let name = form.args[1]
@@ -168,7 +176,7 @@ macro defgeneric(form::Expr, precedenceOrder::Expr, qualifier::Symbol = :standar
     end
 end
 
-# Initial macro for defining generics without specifing the precedence order 
+# Initial macro for defining generic functions without specifing the precedence order 
 macro defgeneric(form::Expr, qualifier::Symbol = :standard)
     validate_generic_function(form)
     let name = form.args[1],
@@ -177,8 +185,6 @@ macro defgeneric(form::Expr, qualifier::Symbol = :standard)
         esc(:($name = @defgeneric $form $precedenceOrder $qualifier))
     end
 end
-
-
 
 # Macro to define a specific method
 macro defmethod(qualifier::Symbol, form::Expr)
@@ -189,7 +195,7 @@ macro defmethod(qualifier::Symbol, form::Expr)
         esc(:(
             let name = $(QuoteNode(name)),
                 nParameters = length($(parameters)),
-                parameterSignature = get_parameter_signature($(parameters)),
+                parameterSignature = Tuple(map(p -> hasproperty(p, :args) && length(p.args) >= 1 ? p.args[2] : :Any, ($parameters))),
                 qualifierObj = $(get_method_qualifier(qualifier)),
                 qualifier = $(QuoteNode(qualifier))
                 clean_cache($(name).genericFunctions[nParameters])
@@ -207,18 +213,21 @@ macro defmethod(form)
 end
 
 
+# === Functions for calling combination methods === #
 
-# Method responsible for calling the effective method of a generic function
+# Method responsible for calling the effective method of the combination
 function call_effective_method(genericContainer::GenericContainer, arguments...)
-    let genericFunction = genericContainer.genericFunctions[length(arguments)]
+    let genericFunction = get(genericContainer.genericFunctions, length(arguments)) do 
+            no_applicable_method(first(values(genericContainer.genericFunctions)).name, arguments...)
+        end
         call_effective_method(genericFunction, arguments...)
     end
 end
 
 # Method responsible for calling the effective method of a generic function with a specific number of arguments
 function call_effective_method(genericFunction::GenericFunction, arguments...)
-    let effectiveMethod = retrieve_cache_methods(genericFunction, arguments...)
-        effectiveMethod(arguments...)
+    let effective_method = retrieve_cache_methods(genericFunction, arguments...)
+        effective_method(arguments...)
     end
 end
 
@@ -228,23 +237,47 @@ end
 function retrieve_cache_methods(genericFunction::GenericFunction, arguments...)
     let signature = Symbol(map(p -> Symbol(typeof(p)), arguments))
         get(genericFunction.effectiveMethods, signature) do
-            let effectiveMethod = combine_methods(genericFunction, genericFunction.qualifier, arguments...)
-                setindex!(genericFunction.effectiveMethods, effectiveMethod, signature)
-                return effectiveMethod
+            let effective_method = combine_methods(genericFunction, genericFunction.qualifier, arguments...)
+                setindex!(genericFunction.effectiveMethods, effective_method, signature)
+                return effective_method
             end
         end
     end
 end
 
 
+# === Functions for creating combination methods === #
 
-# Main method responsible for getting the applicable methods and generating effective methods for a StandardCombination
+# Main method responsible for getting the applicable methods and generating effective methods for a standard combination
 function combine_methods(genericFunction::GenericFunction, qualifier::Qualifier, arguments...)
     let methods = find_methods(genericFunction, qualifier, arguments...)
         sort_and_generate_method(genericFunction, qualifier, methods, arguments...)
     end
 end
 
+# Method responsible for retrieving the all three types of applicable methods of a standard combination separately
+function find_methods(genericFunction::GenericFunction, qualifier::StandardQualifier, arguments...)
+    function add_method_to_standard_list_if_applicable!(standardMethods::Dict, method::SpecificMethod, qualifier::Qualifier, arguments...)
+        if method.qualifier == qualifier && applicable(method.native_function, arguments...)
+            push!(standardMethods[qualifier], method)
+        end
+    end
+
+    let standardMethods = Dict(BeforeQualifier() => [], PrimaryQualifier() => [], AfterQualifier() => [])
+        foreach(m -> add_method_to_standard_list_if_applicable!(standardMethods, m, m.qualifier, arguments...), collect(values(genericFunction.methods)))
+        all(map(m -> isempty(m), values(standardMethods))) ?
+            no_applicable_method(genericFunction, arguments...) :
+            return standardMethods
+    end
+end
+
+# Method responsible for retrieving all applicable methods of a simple combination
+function find_methods(genericFunction::GenericFunction, qualifier::SimpleQualifier, arguments...)
+    simple_methods = filter(m -> applicable(m.native_function, arguments...), collect(values(genericFunction.methods)))
+    isempty(simple_methods) ?
+        no_applicable_method(genericFunction, arguments...) :
+        return simple_methods
+end
 
 # Method responsible for generating an effective method for a standard combination
 function sort_and_generate_method(genericFunction::GenericFunction, qualifier::StandardQualifier, standardMethods::Dict, arguments...) 
@@ -252,11 +285,8 @@ function sort_and_generate_method(genericFunction::GenericFunction, qualifier::S
         primaryMethods = sort_methods(standardMethods[PrimaryQualifier()], genericFunction.parametersOrder),
         afterMethods = sort_methods(standardMethods[AfterQualifier()], genericFunction.parametersOrder, true)
 
-        isempty(primaryMethods) ? (
-            isempty(beforeMethods) && isempty(afterMethods) ?
-                no_applicable_method(genericFunction, arguments...) :
-                generate_standard_method(beforeMethods, afterMethods)
-            ) :
+        isempty(primaryMethods) ?
+            generate_standard_method(beforeMethods, afterMethods) :
             generate_standard_method(beforeMethods, first(primaryMethods), afterMethods)
     end
 end
@@ -264,9 +294,7 @@ end
 # Method responsible for generating an effective method for a tuple combination
 function sort_and_generate_method(genericFunction::GenericFunction, qualifier::SimpleQualifier, tupleMethods::Vector{SpecificMethod}, arguments...) 
     let methods = sort_methods(tupleMethods, genericFunction.parametersOrder)
-        isempty(methods) ?
-            no_applicable_method(genericFunction, arguments...) :
-            generate_simple_method(qualifier, methods)
+        generate_simple_method(qualifier, methods)
     end
 end
 
@@ -292,30 +320,7 @@ function generate_simple_method(qualifier::SimpleQualifier, methods)
     end
 end
 
-
-
-# Method responsible for retrieving the all three types of applicable methods of a StandardCombination separately
-function find_methods(genericFunction::GenericFunction, qualifier::StandardQualifier, arguments...)
-    function add_method_to_standard_list_if_applicable!(standardMethods::Dict, method::SpecificMethod, qualifier::Qualifier, arguments...)
-        if method.qualifier == qualifier && applicable(method.native_function, arguments...)
-            push!(standardMethods[qualifier], method)
-        end
-    end
-
-    let standardMethods = Dict(BeforeQualifier() => [], PrimaryQualifier() => [], AfterQualifier() => [])
-        foreach(m -> add_method_to_standard_list_if_applicable!(standardMethods, m, m.qualifier, arguments...), collect(values(genericFunction.methods)))
-        return standardMethods
-    end
-end
-
-# Method responsible for retrieving all applicable methods of a TupleCombination
-function find_methods(genericFunction::GenericFunction, qualifier::SimpleQualifier, arguments...)
-    filter(m -> applicable(m.native_function, arguments...), collect(values(genericFunction.methods)))
-end
-
-
-
-# Auxiliary methods used while generating the new combination method
+# Auxiliary methods to sort methods according to specificity
 function sort_methods(methods::Vector, order::Tuple, reverseOrder::Bool = false)
     function sort_predicate(A, B) 
         for i in order
